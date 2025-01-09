@@ -111,3 +111,17 @@ gcc -o ex1 ex1.c
 ./ex1
 -8 -5 2 3 6 6 7 7 8 17 42 333
 ```
+### test in Linux VM gcc
+```
+ssh zifenw@attu.cs.washington.edu
+
+ex1.c:52:20: warning: format ‘%lld’ expects argument of type ‘long long int’, but argument 2 has type ‘int64_t’ {aka ‘long int’} [-Wformat=]
+   52 |         printf("%lld%c", array[i], i == (size - 1) ? '\n' : ' ');
+      |                 ~~~^     ~~~~~~~~
+      |                    |          |
+      |                    |          int64_t {aka long int}
+      |                    long long int
+      |                 %ld
+
+change "%lld" to "%ld"
+```

@@ -49,6 +49,6 @@ void insert(int64_t num, int64_t *array, uint64_t size){
 // Prints the array
 void print(int64_t *array, uint64_t size){
     for (int64_t i = 0; i < size; i++){
-        printf("%lld%c", array[i], i == (size - 1) ? '\n' : ' ');
+        printf("%ld%c", array[i], i == (size - 1) ? '\n' : ' ');
     }
 }
