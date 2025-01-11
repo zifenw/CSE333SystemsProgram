@@ -52,3 +52,4 @@ void print(int64_t *array, uint64_t size){
         printf("%ld%c", array[i], i == (size - 1) ? '\n' : ' ');
     }
 }
+
