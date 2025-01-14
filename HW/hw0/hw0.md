@@ -153,5 +153,5 @@ The magic word is: DEADBEEF
 ```
 ### hw0 partE check for style issues
 ```
-[zifenw@attu3 hw0]$ ../cpplint.py --clint hello_world.c
+[zifenw@attu3 hw0]$ python3 cpplint.py --clint hello_world.c
 ```
