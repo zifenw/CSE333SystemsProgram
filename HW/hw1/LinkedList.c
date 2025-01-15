@@ -137,6 +137,36 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
   // STEP 5: implement LinkedList_Append.  It's kind of like
   // LinkedList_Push, but obviously you need to add to the end
   // instead of the beginning.
+
+  // Allocate space for the new node.
+  LinkedListNode *ln = (LinkedListNode *) malloc(sizeof(LinkedListNode));
+  Verify333(ln != NULL);
+
+  // set the payload
+  ln->payload = payload;
+
+  // the case that list is empty
+  if (list->num_elements == 0) {
+    // degenerate case; list is currently empty
+    Verify333(list->head == NULL);
+    Verify333(list->tail == NULL);
+
+    ln->next = ln->prev = NULL;
+    list->head = list->tail = ln;
+    list->num_elements = 1U;
+  }
+
+  // the case that list is not empty
+  //make sure head and tail not empty
+  Verify333(list->head != NULL);
+  Verify333(list->tail != NULL);
+
+  //let ln become tail
+  ln->next = NULL;
+  ln->prev = list->tail;
+  list->tail->next = ln;
+  list->tail = ln;
+  list->num_elements += 1; 
 }
 
 void LinkedList_Sort(LinkedList *list, bool ascending,
@@ -213,7 +243,16 @@ bool LLIterator_Next(LLIterator *iter) {
   // Note that if the iterator is already at the last node,
   // you should move the iterator past the end of the list
 
-  return true;  // you may need to change this return value
+  // advance iterator if there is a node after it
+  if (iter->node->next != NULL) {
+    // if there is a node after iterator, move to next and return true
+    iter->node = iter->node->next;
+    return true;
+  } else {
+    // if there is no node after iterator, set NULL and return false
+    iter->node = NULL;
+    return false;
+  }
 }
 
 void LLIterator_Get(LLIterator *iter, LLPayload_t *payload) {
@@ -242,6 +281,33 @@ bool LLIterator_Remove(LLIterator *iter,
   // Be sure to call the payload_free_function to free the payload
   // the iterator is pointing to, and also free any LinkedList
   // data structure element as appropriate.
+
+
+  // free the current node's payload
+  payload_free_function(iter->node->payload);
+  // pointer to the current node
+  LinkedListNode* temp = iter->node;
+
+  // the list becomes empty after deleting.
+  if(iter->list->num_elements == 1){
+    iter->node = NULL;
+    iter->list->num_elements = 0;
+    iter->list->head = NULL;
+    iter->list->tail = NULL;
+
+    // free the iter node
+    free(temp);
+    // return false since the list is empty now
+    return false;
+  }
+  //iter points at head
+  if(iter->node == iter->list->head){
+
+  }
+  //iter points at tail
+  if(iter->node == iter->list->tail){
+    
+  }
 
 
   return true;  // you may need to change this return value

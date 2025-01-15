@@ -180,3 +180,92 @@ bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
   return true;
 }
 ```
+### STEP 5: LinkedList_Append
+```c
+void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
+  Verify333(list != NULL);
+
+  // STEP 5: implement LinkedList_Append.  It's kind of like
+  // LinkedList_Push, but obviously you need to add to the end
+  // instead of the beginning.
+
+  // Allocate space for the new node.
+  LinkedListNode *ln = (LinkedListNode *) malloc(sizeof(LinkedListNode));
+  Verify333(ln != NULL);
+
+  // set the payload
+  ln->payload = payload;
+
+  // the case that list is empty
+  if (list->num_elements == 0) {
+    // degenerate case; list is currently empty
+    Verify333(list->head == NULL);
+    Verify333(list->tail == NULL);
+
+    ln->next = ln->prev = NULL;
+    list->head = list->tail = ln;
+    list->num_elements = 1U;
+  }
+
+  // the case that list is not empty
+  //make sure head and tail not empty
+  Verify333(list->head != NULL);
+  Verify333(list->tail != NULL);
+
+  //let ln become tail
+  ln->next = NULL;
+  ln->prev = list->tail;
+  list->tail->next = ln;
+  list->tail = ln;
+  list->num_elements += 1; 
+}
+```
+### 迭代器（Iterator）
+迭代器的作用
+1. 逐个访问容器的元素  
+迭代器提供了一种统一的方式来遍历容器，而不需要关心容器的内部结构。
+
+2. 支持不同类型的容器  
+无论是数组、链表、哈希表还是树，只要容器支持迭代器，用户就可以通过相同的方式访问其元素。
+
+3. 提高代码的可读性和可维护性  
+使用迭代器可以避免繁琐的索引操作或遍历逻辑，使代码更加直观和易懂。
+
+迭代器的工作原理  
+迭代器通常是一个对象，它包含了以下三个主要操作：
+
+- 初始化：指向集合的第一个元素。
+- 移动：跳转到集合中的下一个元素。
+- 访问：获取迭代器当前指向的元素值。
+
+```c
+typedef struct ll_iter {
+  LinkedList       *list;  // the list we're for
+  LinkedListNode   *node;  // the node we are at, or NULL if broken
+} LLIterator;
+```
+### STEP 6: LLIterator_Next
+```c
+bool LLIterator_Next(LLIterator *iter) {
+  Verify333(iter != NULL);
+  Verify333(iter->list != NULL);
+  Verify333(iter->node != NULL);
+
+  // STEP 6: try to advance iterator to the next node and return true if
+  // you succeed, false otherwise
+  // Note that if the iterator is already at the last node,
+  // you should move the iterator past the end of the list
+
+  // advance iterator if there is a node after it
+  if (iter->node->next != NULL) {
+    // if there is a node after iterator, move to next and return true
+    iter->node = iter->node->next;
+    return true;
+  } else {
+    // if there is no node after iterator, set NULL and return false
+    iter->node = NULL;
+    return false;
+  }
+}
+```
+### STEP 7: LLIterator_Remove
