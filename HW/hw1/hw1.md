@@ -32,7 +32,7 @@ C不是垃圾收集语言：您自己负责管理内存分配和释放。
 4. Run `make` on a CSE Linux machine。
 5. Try `./test_suite` and `./example_program_ll`
 6. 完成LinkedList.c的实现。浏览LinkedList.c，找到每个写有“步骤X”的注释，并将工作代码放在那里. `自上而下通读代码` 和 `经常重新编译` 会有帮助
-### STEP 1: initialize the newly allocated record structure.
+### STEP 1: LinkedList_Allocate
 ```c
 LinkedList* LinkedList_Allocate(void) {
   // Allocate the linked list record.
@@ -83,7 +83,7 @@ LinkedList_Free(list, &ExamplePayload_Free);
 ```
 ### 结构
 ![示例图片](./LinkedList.png)
-### STEP 2: sweep through the list and free all of the nodes' payloads and the nodes themselves.
+### STEP 2: LinkedList_Free
 
 ```c
 void LinkedList_Free(LinkedList *list,
@@ -111,5 +111,72 @@ void LinkedList_Free(LinkedList *list,
 }
 
 ```
+### STEP 3: LinkedList_Push
 
+```C
+void LinkedList_Push(LinkedList *list, LLPayload_t payload) {
+  Verify333(list != NULL);
 
+  // Allocate space for the new node.
+  LinkedListNode *ln = (LinkedListNode *) malloc(sizeof(LinkedListNode));
+  Verify333(ln != NULL);
+
+  // Set the payload
+  ln->payload = payload;
+
+  if (list->num_elements == 0) {
+    // Degenerate case; list is currently empty
+    Verify333(list->head == NULL);  //if not NULL can continue
+    Verify333(list->tail == NULL);
+    ln->next = ln->prev = NULL;
+    list->head = list->tail = ln;
+    list->num_elements = 1;
+  } else {
+    // STEP 3: typical case; list has >=1 elements
+    //make sure head and tail not empty
+    Verify333(list->head != NULL);
+    Verify333(list->tail != NULL);
+    // let ln become head
+    ln->next = list->head;
+    ln->prev = NULL;
+    list->head->prev = ln;
+    list->head = ln;
+    list->num_elements +=1;
+  }
+}
+```
+### STEP 4: LinkedList_Pop
+```c
+//payload_ptr不是链表操作的正式输入数据，而是用于将弹出的节点负载（payload）保存到变量中，以便进行后续验证和处理。
+bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
+  Verify333(payload_ptr != NULL);
+  Verify333(list != NULL);
+
+  // STEP 4: implement LinkedList_Pop.  
+  // pop false for empty list
+  if (list->num_elements == 0){
+    return false;
+  }
+  
+  // save payload to payload_ptr
+  *payload_ptr = list->head->payload;
+  // save the head pointer to temp
+  LinkedListNode* temp = list->head;
+  
+  if (list->num_elements == 1) {
+    // a list with a single element in it
+    list->head = NULL;
+    list->tail = NULL;
+  } else {
+    // a list with >=2 elements in it
+    list->head = list->head->next;
+    list->head->prev = NULL;
+  }
+
+  list->num_elements -= 1;
+  // free the previous head
+  free(temp);
+  //pop succeeded
+  return true;
+}
+```

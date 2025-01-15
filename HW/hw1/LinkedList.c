@@ -74,13 +74,22 @@ void LinkedList_Push(LinkedList *list, LLPayload_t payload) {
 
   if (list->num_elements == 0) {
     // Degenerate case; list is currently empty
-    Verify333(list->head == NULL);
+    Verify333(list->head == NULL);  //if not NULL can continue
     Verify333(list->tail == NULL);
     ln->next = ln->prev = NULL;
     list->head = list->tail = ln;
     list->num_elements = 1;
   } else {
     // STEP 3: typical case; list has >=1 elements
+    //make sure head and tail not empty
+    Verify333(list->head != NULL);
+    Verify333(list->tail != NULL);
+    // let ln become head
+    ln->next = list->head;
+    ln->prev = NULL;
+    list->head->prev = ln;
+    list->head = ln;
+    list->num_elements +=1;
   }
 }
 
@@ -95,7 +104,31 @@ bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
   // Be sure to call free() to deallocate the memory that was
   // previously allocated by LinkedList_Push().
 
-  return true;  // you may need to change this return value
+  // pop false for empty list
+  if (list->num_elements == 0){
+    return false;
+  }
+  
+  // save payload to payload_ptr
+  *payload_ptr = list->head->payload;
+  // save the head pointer to temp
+  LinkedListNode* temp = list->head;
+  
+  if (list->num_elements == 1) {
+    // a list with a single element in it
+    list->head = NULL;
+    list->tail = NULL;
+  } else {
+    // a list with >=2 elements in it
+    list->head = list->head->next;
+    list->head->prev = NULL;
+  }
+
+  list->num_elements -= 1;
+  // free the previous head
+  free(temp);
+  //pop succeeded
+  return true;
 }
 
 void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
