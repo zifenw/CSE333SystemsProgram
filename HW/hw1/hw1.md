@@ -33,9 +33,20 @@ C不是垃圾收集语言：您自己负责管理内存分配和释放。
 5. Try `./test_suite` and `./example_program_ll`
 6. 完成LinkedList.c的实现。浏览LinkedList.c，找到每个写有“步骤X”的注释，并将工作代码放在那里. `自上而下通读代码` 和 `经常重新编译` 会有帮助
 ### STEP 1: initialize the newly allocated record structure.
+```c
+LinkedList* LinkedList_Allocate(void) {
+  // Allocate the linked list record.
+  LinkedList *ll = (LinkedList *) malloc(sizeof(LinkedList));
+  Verify333(ll != NULL);
+
+  // STEP 1: initialize the newly allocated record structure.
   ll->num_elements = 0;
   ll->head = NULL;
   ll->tail = NULL;
+  // Return our newly minted linked list.
+  return ll;
+}
+  ```
 ### 函数指针
 return_type (*pointer_name)(parameter_list);
 ```c
@@ -54,5 +65,51 @@ int result = func_ptr(3, 4);  // 调用函数
 printf("Result: %d\n", result);  // 输出结果：7
 
 ```
-###
-###
+```c
+//(1) 定义一个普通函数
+void ExamplePayload_Free(LLPayload_t payload) {
+  Verify333(payload != NULL);
+  free(payload);
+}
+//(2) 定义类型是函数指针
+typedef void(*LLPayloadFreeFnPtr)(LLPayload_t payload); //定义类型是函数指针
+
+void LinkedList_Free(LinkedList *list,
+                     LLPayloadFreeFnPtr payload_free_function);
+
+//(3) 使用函数指针调用函数
+//&ExamplePayload_Free 将函数地址赋值给指针
+LinkedList_Free(list, &ExamplePayload_Free);
+```
+### 结构
+![示例图片](./LinkedList.png)
+### STEP 2: sweep through the list and free all of the nodes' payloads and the nodes themselves.
+
+```c
+void LinkedList_Free(LinkedList *list,
+                     LLPayloadFreeFnPtr payload_free_function) {
+  Verify333(list != NULL);
+  Verify333(payload_free_function != NULL);
+
+  // STEP 2: sweep through the list and free all of the nodes' payloads
+  // (using the payload_free_function supplied as an argument) and
+  // the nodes themselves.
+  while(list->head != NULL){
+    //using function pointer free the head's payload:
+    //function is ExamplePayload_Free(LLPayload_t payload) 
+    //can be found in example_problem_ll.c
+    payload_free_function(list->head->payload);
+    //save current node pointer to temp
+    LinkedListNode* temp = list->head;
+    //move head pointer to next
+    list->head = list->head->next;
+    //free the temp pointer
+    free(temp);
+  }  
+  // free the LinkedList
+  free(list);
+}
+
+```
+
+

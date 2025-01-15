@@ -41,7 +41,18 @@ void LinkedList_Free(LinkedList *list,
   // STEP 2: sweep through the list and free all of the nodes' payloads
   // (using the payload_free_function supplied as an argument) and
   // the nodes themselves.
-    
+  while(list->head != NULL){
+    //using function pointer free the head's payload:
+    //function is ExamplePayload_Free(LLPayload_t payload) 
+    //can be found in example_problem_ll.c
+    payload_free_function(list->head->payload);
+    //save current node pointer to temp
+    LinkedListNode* temp = list->head;
+    //move head pointer to next
+    list->head = list->head->next;
+    //free the temp pointer
+    free(temp);
+  }  
   // free the LinkedList
   free(list);
 }
