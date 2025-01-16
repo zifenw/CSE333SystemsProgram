@@ -365,3 +365,21 @@ bool LLSlice(LinkedList *list, LLPayload_t *payload_ptr) {
   return true;
 }
 ```
+### TEST and GIT
+```
+$ ./test_suite --gtest_filter=Test_LinkedList.*
+
+$ valgrind --leak-check=full ./solution_binaries/example_program_ll
+
+$ valgrind --leak-check=full ./solution_binaries/test_suite
+
+$ ../cpplint.py --clint  LinkedList.c
+
+$ git status
+
+$ git add .
+
+$ git commit -m "LinkedList.c part finish, pass all test_suite, Valgrind, and cpplint"
+
+$ git push
+```

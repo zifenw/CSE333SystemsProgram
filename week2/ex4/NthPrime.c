@@ -32,6 +32,11 @@ int64_t NthPrime(int16_t n){
                 return checknext;
             }
         }
+        // EXIT_FAILURE if we've reached the largest positive integer
+        if (checknext == INT64_MAX) {
+            fprintf(stderr, "Hit the maximum value of int64_t.\n");
+            exit(EXIT_FAILURE);
+        }
         checknext = (checknext == 2) ? 3 : checknext + 2;  // Skip even numbers after 2
     }
 }
