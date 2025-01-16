@@ -105,3 +105,18 @@ bool IsPrime(int64_t n) {
     return true;
 }
 ```
+### compiled and test
+```
+gcc -Wall -g -std=c17 -c -o NthPrime.o NthPrime.c
+gcc -Wall -g -std=c17 -c -o ex4.o ex4.c
+gcc -Wall -g -std=c17 -o ex4 ex4.o NthPrime.o
+./ex4
+```
+### test in Linux VM gcc
+```
+ssh zifenw@attu.cs.washington.edu
+gcc -Wall -g -std=c17 -c -o NthPrime.o NthPrime.c
+gcc -Wall -g -std=c17 -c -o ex4.o ex4.c
+gcc -Wall -g -std=c17 -o ex4 ex4.o NthPrime.o
+valgrind --leak-check=full ./ex3
+python3 cpplint.py --clint ex3.c
