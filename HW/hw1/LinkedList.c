@@ -154,19 +154,20 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
     ln->next = ln->prev = NULL;
     list->head = list->tail = ln;
     list->num_elements = 1U;
+  } else {
+
+    // the case that list is not empty
+    //make sure head and tail not empty
+    Verify333(list->head != NULL);
+    Verify333(list->tail != NULL);
+
+    //let ln become tail
+    ln->next = NULL;
+    ln->prev = list->tail;
+    list->tail->next = ln;
+    list->tail = ln;
+    list->num_elements += 1; 
   }
-
-  // the case that list is not empty
-  //make sure head and tail not empty
-  Verify333(list->head != NULL);
-  Verify333(list->tail != NULL);
-
-  //let ln become tail
-  ln->next = NULL;
-  ln->prev = list->tail;
-  list->tail->next = ln;
-  list->tail = ln;
-  list->num_elements += 1; 
 }
 
 void LinkedList_Sort(LinkedList *list, bool ascending,

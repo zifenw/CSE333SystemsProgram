@@ -205,7 +205,7 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
     ln->next = ln->prev = NULL;
     list->head = list->tail = ln;
     list->num_elements = 1U;
-  }
+  } else{
 
   // the case that list is not empty
   //make sure head and tail not empty
@@ -217,7 +217,8 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
   ln->prev = list->tail;
   list->tail->next = ln;
   list->tail = ln;
-  list->num_elements += 1; 
+  list->num_elements += 1;
+  } 
 }
 ```
 ### 迭代器（Iterator）
@@ -269,3 +270,98 @@ bool LLIterator_Next(LLIterator *iter) {
 }
 ```
 ### STEP 7: LLIterator_Remove
+```c
+bool LLIterator_Remove(LLIterator *iter,
+                       LLPayloadFreeFnPtr payload_free_function) {
+  Verify333(iter != NULL);
+  Verify333(iter->list != NULL);
+  Verify333(iter->node != NULL);
+
+  // STEP 7: implement LLIterator_Remove.  This is the most
+  // complex function you'll build.  There are several cases
+  // to consider:
+  // - degenerate case: the list becomes empty after deleting.
+  // - degenerate case: iter points at head
+  // - degenerate case: iter points at tail
+  // - fully general case: iter points in the middle of a list,
+  //                       and you have to "splice".
+  //
+  // Be sure to call the payload_free_function to free the payload
+  // the iterator is pointing to, and also free any LinkedList
+  // data structure element as appropriate.
+
+
+  // free the current node's payload
+  payload_free_function(iter->node->payload);
+  // pointer to the current node
+  LinkedListNode* temp = iter->node;
+
+  // the list becomes empty after deleting.
+  if(iter->list->num_elements == 1){
+    iter->node = NULL;
+    iter->list->num_elements = 0;
+    iter->list->head = NULL;
+    iter->list->tail = NULL;
+
+    // free the iter node
+    free(temp);
+    // return false since the list is empty now
+    return false;
+  }
+  iter->list->num_elements -= 1;
+  
+  if(iter->node->prev == NULL){
+    //iter points at head    iter->node == iter->list->head
+    iter->node = iter->node->next;
+    iter->node->prev = NULL;
+    iter->list->head = iter->node;
+  } else if(iter->node->next == NULL){
+    //iter points at tail
+    iter->node = iter->node->prev;
+    iter->node->next = NULL;
+    iter->list->tail = iter->node;
+  } else {
+    //normal case
+    iter->node->prev->next = iter->node->next;
+    iter->node->next->prev = iter->node->prev;
+    iter->node = iter->node->next;
+  }
+
+  free(temp);
+
+  return true;  // you may need to change this return value
+}
+```
+### STEP 8: implement LLSlice
+```c
+bool LLSlice(LinkedList *list, LLPayload_t *payload_ptr) {
+  Verify333(payload_ptr != NULL);
+  Verify333(list != NULL);
+
+  // STEP 8: implement LLSlice.
+  // return false since nothing can be sliced from the empty list
+  if (list->num_elements == 0) {
+    return false;
+  }
+  // store the payload of tail 
+  *payload_ptr = list->tail->payload;
+  // old tails pointer, save to temp and going to free later
+  LinkedListNode* temp =list-> tail;
+
+  if (list->num_elements == 1) {
+    //only have one node
+    list->head = NULL;
+    list->tail = NULL;
+  } else {
+    //normal case
+    list->tail = list->tail->prev;
+    list->tail->next = NULL;
+  }
+
+  list->num_elements -= 1;
+  //free the old tail
+  free(temp);
+  // return true since slice succeed
+  return true;
+}
+```
