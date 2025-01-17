@@ -198,15 +198,15 @@ bool HashTable_Find(HashTable *table,
 
   // STEP 2: implement HashTable_Find.
 
-  uint32_t bucketnum;
+  int bucketnum;
   LinkedList* chain;
 
   // calculate bucket we're looking for
   // get its LinkedList chain
-  HashKeyToBucketNum(table, key);
+  bucketnum = HashKeyToBucketNum(table, key);
   chain = table->buckets[bucketnum];
 
-  // return 0 is no pair in the chain
+  // return false if no pair in the chain
   if (LinkedList_NumElements(chain) == 0){
     return false;
   }
@@ -238,8 +238,45 @@ bool HashTable_Remove(HashTable *table,
   Verify333(table != NULL);
 
   // STEP 3: implement HashTable_Remove.
+  int bucketnum;
+  LinkedList* chain;
 
-  return 0;  // you may need to change this return value
+  // calculate the bucket we're looking for
+  // get its LinkedList chain
+  bucketnum =  HashKeyToBucketNum(table, key);
+  chain = table->buckets[bucketnum];
+
+  // return false if no pair in the chain
+  if (LinkedList_NumElements(chain) == 0){
+    return false;
+  }
+
+  // make an iterator for the bucket
+  LLIterator* lliter = LLIterator_Allocate(chain);
+
+  // return false if didn't creat lliter succeed 
+  if (lliter == NULL) {
+    return false;
+  }
+
+  HTKeyValue_t *pair;  // variable to store key/value
+  if (HasKey(lliter, key, &pair)) {
+    // key in the bucket
+    // copy the keyvalue to rethrn parameter pair
+    keyvalue->key = pair->key;
+    keyvalue->value = pair->value;
+    free (pair);
+
+    //remove the pair from the bucket
+    LLIterator_Remove(lliter, &LLNoOpFree);
+    LLIterator_Free(lliter);
+    table->num_elements -= 1;
+    // remove succeed
+    return true;
+  }
+  // didn't find the key
+  LLIterator_Free(lliter);
+  return false;
 }
 
 
@@ -289,18 +326,64 @@ void HTIterator_Free(HTIterator *iter) {
 
 bool HTIterator_IsValid(HTIterator *iter) {
   Verify333(iter != NULL);
+  Verify333(iter->ht != NULL);
 
   // STEP 4: implement HTIterator_IsValid.
-
-  return true;  // you may need to change this return value
+  // Check if the iterator's bucket index is valid
+  // bucket_idx starts with 0 and num_buckets starts with 1 so `>=`
+  if (iter->bucket_idx < 0 || iter->bucket_idx >= iter->ht->num_buckets) {
+    return false;
+  }
+  // Check if the bucket iterator is valid
+  if (iter->bucket_it == NULL) {
+    return false;
+  }
+  return LLIterator_IsValid(iter->bucket_it);
 }
 
 bool HTIterator_Next(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 5: implement HTIterator_Next.
+  // if htiter is invalid return false
+  if (!HTIterator_IsValid(iter)) {
+    return false;
+  }
 
-  return true;  // you may need to change this return value
+  // if the current bucket has next element,
+  if (LLIterator_Next(iter->bucket_it)) {
+    return true;
+  }
+
+  // if cureent bucket didn't have
+  // if theis is the last bucket
+  if (iter->bucket_idx == iter->ht->num_buckets - 1) {
+    return false;
+  }
+
+  int i;  // buketnum
+  // find the next non-empty bucket
+  for (i = iter->bucket_idx + 1; i < iter->ht->num_buckets; i++) {
+    if (LinkedList_NumElements(iter->ht->buckets[i]) > 0) {
+      iter->bucket_idx = i;
+      break;
+    }
+  }
+
+  // if there is no non-empty bucket
+  if (i == iter->ht->num_buckets) {
+    return false;
+  }
+  // if there is a non-empty bucket
+  LLIterator_Free(iter->bucket_it);
+  iter->bucket_it = LLIterator_Allocate(iter->ht->buckets[iter->bucket_idx]);
+
+  // didn't attlcate well
+  if (iter->bucket_it == NULL) {
+    false;
+  }
+  // succeed move to next non-empty buket
+  return true;
 }
 
 bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
@@ -308,7 +391,21 @@ bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
 
   // STEP 6: implement HTIterator_Get.
 
-  return true;  // you may need to change this return value
+  HTKeyValue_t *pair;  //// variable to store key/value
+
+  if (HTIterator_IsValid(iter)) {
+    LLIterator_Get(iter->bucket_it, (LLPayload_t) &pair);
+
+    // copy the key/value store in payload to return parameter keyvalue
+    keyvalue->key = pair->key;
+    keyvalue->value = pair->value;
+
+    // get succeed
+    return true;
+  }
+
+  // get failed
+  return false;  // you may need to change this return value
 }
 
 bool HTIterator_Remove(HTIterator *iter, HTKeyValue_t *keyvalue) {
@@ -381,7 +478,7 @@ static bool HasKey (LLIterator* lliter,
   Verify333(lliter != NULL);
   while (true) {
     // Use: void LLIterator_Get(LLIterator *iter, LLPayload_t *payload);
-    LLIterator_Get(lliter, (void**) keyvalue);
+    LLIterator_Get(lliter, (LLPayload_t) keyvalue);
     // key is found
     // type of *keyvalue is HTKeyValue_t*
     if ((*keyvalue)->key == key) {
