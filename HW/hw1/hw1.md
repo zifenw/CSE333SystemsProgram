@@ -383,3 +383,210 @@ $ git commit -m "LinkedList.c part finish, pass all test_suite, Valgrind, and cp
 
 $ git push
 ```
+## Part B: Chained Hash Table
+链式哈希表是一种数据结构，它由一组bucket组成，每个bucket包含一个元素的链表。当用户将密钥/值对插入哈希表时，哈希表使用哈希函数将密钥映射到其中一个bucket中，然后将密钥/值对添加到链接列表中。
+
+有一个重要的角点情况：如果插入的键/值对的键已经存在于哈希表中；我们的哈希表实现将现有的键/值对替换为新的键/值对，并将旧的键/值对返回给客户。
+
+随着时间的推移，随着越来越多的元素被添加到哈希表中，挂在每个bucket上的链接列表将开始增长。只要哈希表中的元素数是bucket数的一个小倍数，查找时间就很快：对键进行哈希以找到bucket，然后遍历挂起bucket的（短）链（链表），直到找到键。随着元素的数量越来越大，查找的效率越来越低，因此我们的哈希表包含通过增加bucket的数量来调整自身大小的逻辑，以保持短链。
+
+### HashTable
+包含哈希表元数据的结构，例如元素数和bucket数组。当客户要求我们分配一个新的空哈希表时，我们malloc并初始化该表的一个实例（包括为它使用的bucket数组分配malloc'ing空间和为每个bucket分配linkedList），并将指向该malloc'ed结构的指针返回给客户。
+
+### HTIterator 
+有时客户希望遍历哈希表中的所有元素；为了帮助他们做到这一点，我们为他们提供了一个迭代器。HTIterator指向包含与迭代器关联的簿记的结构。与链表迭代器类似，哈希表迭代器跟踪与该迭代器相关联的哈希表，此外，还具有用于在bucket链表中进行迭代的链表迭代器。当客户要求一个新的迭代器时，我们malloc一个HTIterator并返回一个指向它的指针。
+
+### Instructions
+1. 在A部分中获取的代码还包含完成哈希表实现并对其进行测试所需的文件。与链表类似，哈希表实现被拆分为几个文件：`HashTable.c`包含需要完成的实现；`HashTable.h`包含哈希表的公共接口，并记录客户看到的所有函数和结构；`HashTable_priv.h`包含HashTable.c使用的一些私有内部结构。
+
+2. 阅读`HashTable.h`，首先了解HashTable接口语义是什么。然后，看一下`example_program_ht.c`；这是一个程序，它使用哈希表接口插入/查找/删除哈希表中的元素，并使用迭代器接口遍历哈希表中的元素。
+
+3. 和前面一样，`test_hashtable.cc`包含我们针对哈希表的Google测试单元测试。单独运行它，并使用valgrind来查看您离完成哈希表实现有多近。
+
+4. 查看`HashTable.c`，找到所有缺失的部分（如前所述，由步骤X注释标识），并实现它们。
+
+5. 和以前一样，在`solution_binaries`文件中，我们提供了linux可执行文件，这些文件是用我们完整的工作版本的HashTable编译的。c您可以运行它们来探索当part B实现工作时应该显示什么，并查看源代码中有关如何使用数据结构的示例。
+### HashKeyToBucketNum
+```c
+int HashKeyToBucketNum(HashTable *ht, HTKey_t key) {
+  return key % ht->num_buckets;
+}
+```
+### HashTable_Allocate
+```c
+HashTable* HashTable_Allocate(int num_buckets) {
+  HashTable *ht;
+  int i;
+
+  Verify333(num_buckets > 0);
+
+  // Allocate the hash table record.
+  ht = (HashTable *) malloc(sizeof(HashTable));
+  Verify333(ht != NULL);
+
+  // Initialize the record.
+  ht->num_buckets = num_buckets;
+  ht->num_elements = 0;
+  ht->buckets = (LinkedList **) malloc(num_buckets * sizeof(LinkedList *));
+  Verify333(ht->buckets != NULL);
+  for (i = 0; i < num_buckets; i++) {
+    ht->buckets[i] = LinkedList_Allocate();
+  }
+
+  return ht;
+}
+```
+制作一个buckets的array，然后每一个bucket是一个linkedlist
+
+![示例图片](./HashTable.png)
+### Step1: HashTable_Insert
+```c
+bool HashTable_Insert(HashTable *table,
+                      HTKeyValue_t newkeyvalue,
+                      HTKeyValue_t *oldkeyvalue) {
+  int bucket;
+  LinkedList *chain;
+
+  Verify333(table != NULL);
+  MaybeResize(table);
+
+  // Calculate which bucket and chain we're inserting into.
+  bucket = HashKeyToBucketNum(table, newkeyvalue.key);
+  chain = table->buckets[bucket];
+
+  // STEP 1: finish the implementation of InsertHashTable.
+  // This is a fairly complex task, so you might decide you want
+  // to define/implement a helper function that helps you find
+  // and optionally remove a key within a chain, rather than putting
+  // all that logic inside here.  You might also find that your helper
+  // can be reused in steps 2 and 3.
+
+  // allocate space for HTKeyValue_t
+  HTKeyValue_t* newpair = (HTKeyValue_t*) malloc(sizeof(HTKeyValue_t));
+  if (newpair == NULL) {
+    return false;  // // 没有分配内存成功，不需要 free
+  }
+  // make a copy of new key/value passed in
+  // newpair is pointer, use `->`; newkeyvaluse is a struct, use `.`
+  newpair->key = newkeyvalue.key;
+  newpair->value = newkeyvalue.value;
+
+  // no need to search if size of the chain is 0
+  // directly add to the bucket
+  if (LinkedList_NumElements(chain) == 0) {
+    LinkedList_Push(chain, (void*) newpair);
+    table->num_elements += 1;
+    // push succeeded
+    return true;
+  }
+
+  // ***
+  // make an iterator for the bucket
+  LLIterator* lliter = LLIterator_Allocate(chain);
+
+  // return false if didn't creat lliter succeed 
+  if (lliter == NULL) {
+    free(newpair);
+    return false;
+  }
+
+  HTKeyValue_t* oldpair;
+
+  // check if the bucket contains the new key
+  if (HasKey(lliter, newkeyvalue.key, &oldpair)) {
+    // bucket contains new key
+    LinkedList_Append(chain, (void*)newpair);
+    // copy the oldpair to the oldkeyvalue
+    oldkeyvalue->key = oldpair->key;
+    oldkeyvalue->value = oldpair->value;
+
+    // free the oldpair
+    free(oldpair);
+    // detele oldpair from the bucket
+    LLIterator_Remove(lliter, &LLNoOpFree);
+    LLIterator_Free(lliter);
+    return true;
+  }
+  // really new key
+  LLIterator_Free(lliter);
+  LinkedList_Append(chain, (void*)newpair);
+
+  table->num_elements += 1;
+  return 1;
+}
+```
+
+### helper function
+```c
+// ***
+// Helper Function
+// check whether there is a key same with new key in the bucket
+static bool HasKey (LLIterator* lliter,
+                          HTKey_t key,
+                          HTKeyValue_t** keyvalue) {
+  Verify333(lliter != NULL);
+  while (true) {
+    // Use: void LLIterator_Get(LLIterator *iter, LLPayload_t *payload);
+    LLIterator_Get(lliter, (void**) keyvalue);
+    // key is found
+    // type of *keyvalue is HTKeyValue_t*
+    if ((*keyvalue)->key == key) {
+      return true;
+    }
+
+    // key is not found in the list
+    if (!LLIterator_Next(lliter)) {
+      break;
+    }
+  }
+  // no same key
+  return false;
+}
+```
+### Step2: HashTable_Find
+注意c中function中的pointer parameter不一定是要用到它的值；
+
+甚至它可能都没有值，我们反而需要向其中输入值。
+```c
+bool HashTable_Find(HashTable *table,
+                    HTKey_t key,
+                    HTKeyValue_t *keyvalue) {
+  Verify333(table != NULL);
+
+  // STEP 2: implement HashTable_Find.
+
+  uint32_t bucketnum;
+  LinkedList* chain;
+
+  // calculate bucket we're looking for
+  // get its LinkedList chain
+  HashKeyToBucketNum(table, key);
+  chain = table->buckets[bucketnum];
+
+  // return 0 is no pair in the chain
+  if (LinkedList_NumElements(chain) == 0){
+    return false;
+  }
+  // make an iterator for the bucket
+  LLIterator* lliter = LLIterator_Allocate(chain);
+
+  // return false if didn't creat lliter succeed 
+  if (lliter == NULL) {
+    return false;
+  }
+  HTKeyValue_t *pair;
+  if (HasKey(lliter, key, &pair)) {
+    keyvalue->key = pair->key;
+    keyvalue->value = pair->value;
+
+    LLIterator_Free(lliter);
+    // find the key, return true
+    return true;
+  }
+
+  LLIterator_Free(lliter);
+  // didn't find the key, return false
+  return false;
+}
+```
+### Step3 HashTable_Remove

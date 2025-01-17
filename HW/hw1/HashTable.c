@@ -138,7 +138,57 @@ bool HashTable_Insert(HashTable *table,
   // all that logic inside here.  You might also find that your helper
   // can be reused in steps 2 and 3.
 
-  return 0;  // you may need to change this return value
+  // allocate space for HTKeyValue_t
+  HTKeyValue_t* newpair = (HTKeyValue_t*) malloc(sizeof(HTKeyValue_t));
+  if (newpair == NULL) {
+    return false;
+  }
+  // save new key and new value
+  newpair->key = newkeyvalue.key;
+  newpair->value = newkeyvalue.value;
+
+  // no need to search if size of the chain is 0
+  // directly add to the bucket
+  if (LinkedList_NumElements(chain) == 0) {
+    LinkedList_Push(chain, (void*) newpair);
+    table->num_elements += 1;
+    // push succeeded
+    return true;
+  }
+
+  // ***
+  // make an iterator for the bucket
+  LLIterator* lliter = LLIterator_Allocate(chain);
+
+  // return false if didn't creat lliter succeed 
+  if (lliter == NULL) {
+    free(newpair);
+    return false;
+  }
+
+  HTKeyValue_t* oldpair;
+
+  // check if the bucket contains the new key
+  if (HasKey(lliter, newkeyvalue.key, &oldpair)) {
+    // bucket contains new key
+    LinkedList_Append(chain, (void*)newpair);
+    // copy the oldpair to the oldkeyvalue
+    oldkeyvalue->key = oldpair->key;
+    oldkeyvalue->value = oldpair->value;
+
+    // free the oldpair
+    free(oldpair);
+    // detele oldpair from the bucket
+    LLIterator_Remove(lliter, &LLNoOpFree);
+    LLIterator_Free(lliter);
+    return true;
+  }
+  // really new key
+  LLIterator_Free(lliter);
+  LinkedList_Append(chain, (void*)newpair);
+
+  table->num_elements += 1;
+  return 1;
 }
 
 bool HashTable_Find(HashTable *table,
@@ -148,7 +198,38 @@ bool HashTable_Find(HashTable *table,
 
   // STEP 2: implement HashTable_Find.
 
-  return false;  // you may need to change this return value
+  uint32_t bucketnum;
+  LinkedList* chain;
+
+  // calculate bucket we're looking for
+  // get its LinkedList chain
+  HashKeyToBucketNum(table, key);
+  chain = table->buckets[bucketnum];
+
+  // return 0 is no pair in the chain
+  if (LinkedList_NumElements(chain) == 0){
+    return false;
+  }
+  // make an iterator for the bucket
+  LLIterator* lliter = LLIterator_Allocate(chain);
+
+  // return false if didn't creat lliter succeed 
+  if (lliter == NULL) {
+    return false;
+  }
+  HTKeyValue_t *pair;
+  if (HasKey(lliter, key, &pair)) {
+    keyvalue->key = pair->key;
+    keyvalue->value = pair->value;
+
+    LLIterator_Free(lliter);
+    // find the key, return true
+    return true;
+  }
+
+  LLIterator_Free(lliter);
+  // didn't find the key, return false
+  return false;
 }
 
 bool HashTable_Remove(HashTable *table,
@@ -289,4 +370,29 @@ static void MaybeResize(HashTable *ht) {
   // Done!  Clean up our iterator and temporary table.
   HTIterator_Free(it);
   HashTable_Free(newht, &HTNoOpFree);
+}
+
+// ***
+// Helper Function
+// check whether there is a key same with new key in the bucket
+static bool HasKey (LLIterator* lliter,
+                          HTKey_t key,
+                          HTKeyValue_t** keyvalue) {
+  Verify333(lliter != NULL);
+  while (true) {
+    // Use: void LLIterator_Get(LLIterator *iter, LLPayload_t *payload);
+    LLIterator_Get(lliter, (void**) keyvalue);
+    // key is found
+    // type of *keyvalue is HTKeyValue_t*
+    if ((*keyvalue)->key == key) {
+      return true;
+    }
+
+    // key is not found in the list
+    if (!LLIterator_Next(lliter)) {
+      break;
+    }
+  }
+  // no same key
+  return false;
 }
