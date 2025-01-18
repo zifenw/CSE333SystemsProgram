@@ -728,3 +728,97 @@ bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
   return false;  // you may need to change this return value
 }
 ```
+### make error HasKey
+```c
+// ***
+// Helper Function
+// check whether there is a key same with new key in the bucket
+static bool HasKey (LLIterator* lliter,
+                          HTKey_t key,
+                          HTKeyValue_t** keyvalue);
+```
+forgot // Function Declaration at the begining of the file
+### Linux Vim
+1. 基本移动命令
+- `h`: 左移一个字符
+- `l`: 右移一个字符
+- `j`: 下移一行
+- `k`: 上移一行
+- `0`: 跳转到行首
+- `^`: 跳转到本行第一个非空白字符
+- `$`: 跳转到行尾
+- `gg`: 跳转到文件开头
+- `G`: 跳转到文件末尾
+- `Ngg` 或 `NG`: 跳转到第 N 行，例如 10G 跳到第 10 行
+- `%`: 跳转到匹配的括号、花括号或中括号
+
+2. 删除命令
+- `x`: 删除光标所在的字符(光标之后的字母)
+- `dd`: 删除光标所在的整行
+- `d10d`: 删除当前行及其下方 10 行
+- `D`: 删除光标到行尾的内容
+- `d0`: 删除光标到行首的内容
+- `d^`: 删除光标到本行第一个非空白字符
+- `:1,10d`: 删除第 1 到第 10 行
+
+3. 复制/粘贴命令
+- `yy`: 复制当前行(yank)
+- `y10y` 或 `10yy`: 复制当前行及其下方 10 行
+- `yw`: 复制一个单词
+- `y$`: 复制光标到行尾的内容
+- `p`: 在光标后粘贴内容
+- `P`: 在光标前粘贴内容
+
+4. 撤销/重做
+- `u`: 撤销上一个操作
+- `U`: 撤销当前行的所有修改
+- `Ctrl + r`: 重做撤销的操作
+
+5. 搜索与替换
+`/keyword`: 搜索 keyword，按 n 查找下一个，N 查找上一个
+`?keyword`: 向上搜索 keyword
+`:%s/old/new/g`: 全局替换 old 为 new
+`:1,10s/old/new/g`: 替换第 1 到第 10 行的 old 为 new
+`:%s/old/new/gc`: 替换时逐个确认
+
+6. 其他常用命令
+- `:`: 进入命令模式
+- `:w`: 保存文件
+- `:q`: 退出 Vim
+- `:wq` 或 `ZZ`: 保存并退出
+- `:q!`: 强制退出，不保存
+- `:e filename`: 打开新文件
+- `:set nu`: 显示行号
+- `:set nonu`: 关闭行号
+
+### TEST and GIT
+```
+$ ./test_suite --gtest_filter=Test_LinkedList.*
+
+$ valgrind --leak-check=full ./solution_binaries/example_program_ht
+
+$ valgrind --leak-check=full ./solution_binaries/test_suite
+
+$ ../cpplint.py --clint  LinkedList.c
+
+$ git status
+
+$ git add .
+
+$ git commit -m "HashTable.c part finish, pass all test_suite, Valgrind, and cpplint"
+
+$ git push
+
+$ git pull
+$ make clean
+$ git status
+
+$ git rm example_program_ht example_program_ll test_suite
+
+$ git commit -m "remove example_program_ht, example_program_ll, and test_suite"
+
+$ git push
+
+$ git tag hw1-final
+$ git push --tags 
+```

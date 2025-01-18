@@ -37,6 +37,11 @@ int HashKeyToBucketNum(HashTable *ht, HTKey_t key) {
 static void LLNoOpFree(LLPayload_t freeme) { }
 static void HTNoOpFree(HTValue_t freeme) { }
 
+// Helper Function Declaration
+// Search through a bucket to see if it contains the key.
+static bool HasKey(LLIterator* lliter,
+                          HTKey_t key,
+                          HTKeyValue_t** keyvalue);
 
 ///////////////////////////////////////////////////////////////////////////////
 // HashTable implementation.
@@ -156,11 +161,12 @@ bool HashTable_Insert(HashTable *table,
     return true;
   }
 
+
   // ***
   // make an iterator for the bucket
   LLIterator* lliter = LLIterator_Allocate(chain);
 
-  // return false if didn't creat lliter succeed 
+  // return false if didn't creat lliter succeed
   if (lliter == NULL) {
     free(newpair);
     return false;
@@ -207,13 +213,13 @@ bool HashTable_Find(HashTable *table,
   chain = table->buckets[bucketnum];
 
   // return false if no pair in the chain
-  if (LinkedList_NumElements(chain) == 0){
+  if (LinkedList_NumElements(chain) == 0) {
     return false;
   }
   // make an iterator for the bucket
   LLIterator* lliter = LLIterator_Allocate(chain);
 
-  // return false if didn't creat lliter succeed 
+  // return false if didn't creat lliter succeed
   if (lliter == NULL) {
     return false;
   }
@@ -247,14 +253,14 @@ bool HashTable_Remove(HashTable *table,
   chain = table->buckets[bucketnum];
 
   // return false if no pair in the chain
-  if (LinkedList_NumElements(chain) == 0){
+  if (LinkedList_NumElements(chain) == 0) {
     return false;
   }
 
   // make an iterator for the bucket
   LLIterator* lliter = LLIterator_Allocate(chain);
 
-  // return false if didn't creat lliter succeed 
+  // return false if didn't creat lliter succeed
   if (lliter == NULL) {
     return false;
   }
@@ -265,9 +271,9 @@ bool HashTable_Remove(HashTable *table,
     // copy the keyvalue to rethrn parameter pair
     keyvalue->key = pair->key;
     keyvalue->value = pair->value;
-    free (pair);
+    free(pair);
 
-    //remove the pair from the bucket
+    // remove the pair from the bucket
     LLIterator_Remove(lliter, &LLNoOpFree);
     LLIterator_Free(lliter);
     table->num_elements -= 1;
@@ -472,7 +478,7 @@ static void MaybeResize(HashTable *ht) {
 // ***
 // Helper Function
 // check whether there is a key same with new key in the bucket
-static bool HasKey (LLIterator* lliter,
+static bool HasKey(LLIterator* lliter,
                           HTKey_t key,
                           HTKeyValue_t** keyvalue) {
   Verify333(lliter != NULL);
