@@ -23,7 +23,7 @@ CPPUNITFLAGS = -L../gtest -lgtest
 OBJS = LinkedList.o HashTable.o CSE333.o
 HEADERS = LinkedList.h HashTable.h CSE333.h
 TESTOBJS = test_linkedlist.o test_hashtable.o test_suite.o
-
+TESTOBJS = test_linkedlist.o test_hashtable.o test_FNVHash64.o test_suite.o
 # compile everything; this is the default rule that fires if a user
 # just types "make" in the same directory as this Makefile
 all: test_suite example_program_ll example_program_ht
@@ -46,6 +46,9 @@ test_suite: $(TESTOBJS) libhw1.a
 
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $<
+
+%.o: %.cpp $(HEADERS)
+	$(CXX) $(CXXFLAGS) -c $<
 
 clean:
 	/bin/rm -f *.o *~ *.gcno *.gcda *.gcov test_suite libhw1.a \

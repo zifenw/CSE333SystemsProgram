@@ -158,7 +158,7 @@ bool HashTable_Insert(HashTable *table,
     LinkedList_Push(chain, (void*) newpair);
     table->num_elements += 1;
     // push succeeded
-    return true;
+    return false;
   }
 
 
@@ -194,7 +194,7 @@ bool HashTable_Insert(HashTable *table,
   LinkedList_Append(chain, (void*)newpair);
 
   table->num_elements += 1;
-  return 1;
+  return false;
 }
 
 bool HashTable_Find(HashTable *table,
