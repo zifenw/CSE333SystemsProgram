@@ -119,7 +119,25 @@ char* ReadFileToString(const char *file_name, int *size) {
   // or a non-recoverable error.  Read the man page for read() carefully, in
   // particular what the return values -1 and 0 imply.
   left_to_read = file_stat.st_size;
+  num_read = 0;
   while (left_to_read > 0) {
+    result = read(fd, buf + num_read, left_to_read);
+    if (result == 0) {
+      // End of File
+      left_to_read = 0;
+    } else if (result == -1) {
+      if (errno != EAGAIN && errno != EINTR) {
+        free(buf);
+        return NULL;
+      }
+      // continue read the file if error is recoverable
+      continue;
+    } else {
+      // update the num_read
+      num_read += result;
+      // update the left_to_read, remain bytes to be read
+      left_to_read -= result;
+    }
   }
 
   // Great, we're done!  We hit the end of the file and we read
