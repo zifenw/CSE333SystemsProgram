@@ -25,8 +25,29 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // Helper function declarations, constants, etc
+#define INITIAL_BUF_SIZE 128   // Avoid magic number for buffer size
+#define MAX_WORDS 100          // Avoid magic number for word storage
+
+/**
+ * @brief Prints usage instructions and exits the program.
+ */
 static void Usage(void);
+
+/**
+ * @brief Handles user queries, searches the index, and prints results.
+ * 
+ * @param dt Document table storing document metadata.
+ * @param mi Memory index used for searching documents.
+ */
 static void ProcessQueries(DocTable *dt, MemIndex *mi);
+
+/**
+ * @brief Reads a line from a file, converts it to lowercase, and returns it.
+ * 
+ * @param f File stream to read from.
+ * @param ret_str Pointer to store the allocated string.
+ * @return 0 on success, -1 on error or EOF.
+ */
 static int GetNextLine(FILE *f, char **ret_str);
 
 
@@ -54,6 +75,28 @@ int main(int argc, char **argv) {
   // Note that you should make sure the fomatting of your
   // searchshell output exactly matches our solution binaries
   // to get full points on this part.
+
+  DocTable *dt;
+  MemIndex *mi;
+  // Crawl the directory provided to build the DocTable and MemIndex.
+  if (!CrawlFileTree(argv[1], &dt, &mi)) {
+    fprintf(stderr,
+      "Error: Failed to crawl the directory '%s'.\n", argv[1]);
+    Usage();
+  }
+  Verify333(dt != NULL);
+  Verify333(mi != NULL);
+  printf("Indexing '%s'\n", argv[1]);
+
+  // Process user queries in a loop.
+  ProcessQueries(dt, mi);
+
+  printf("shutting down...\n");
+  // Free all dynamically allocated memory and resources.
+  DocTable_Free(dt);
+  MemIndex_Free(mi);
+
+  // Exit successfully
   return EXIT_SUCCESS;
 }
 
@@ -70,8 +113,82 @@ static void Usage(void) {
 }
 
 static void ProcessQueries(DocTable *dt, MemIndex *mi) {
+  char *query = NULL;
+  LLIterator *llit;
+  SearchResult *rs;
+
+  while (1) {
+    printf("enter query:\n");
+    if (GetNextLine(stdin, &query) == -1) {
+      break;
+    }
+    // Split the query into words using strtok_r.
+    char *saveptr;
+    char *word = strtok_r(query, " ", &saveptr);  // Split the query into words
+    char *words[MAX_WORDS];  // Array to store up to 100 words
+    int word_count = 0;
+
+    while (word != NULL && word_count < MAX_WORDS) {
+      words[word_count++] = word;  // Store the word in the array
+      word = strtok_r(NULL, " ", &saveptr);  // Get the next word
+    }
+
+    // Process the query against the MemIndex and print the results.
+    LinkedList *results = MemIndex_Search(mi, words, word_count);
+    if (results != NULL) {
+      llit = LLIterator_Allocate(results);
+      Verify333(llit != NULL);
+
+      // print out all the matching documents under
+      // the directory argv[1] and the rank for the query
+      do {
+        LLIterator_Get(llit, (void **) &rs);
+        printf("  %s (%u)\n", DocTable_GetDocName(dt, rs->doc_id), rs->rank);
+      } while (LLIterator_Next(llit));
+
+      LLIterator_Free(llit);
+    }
+
+      free(query);
+    }
 }
 
 static int GetNextLine(FILE *f, char **ret_str) {
-  return -1;  // you may need to change this return value
+    if (f == NULL || ret_str == NULL) {
+        return -1;  // Invalid arguments
+    }
+
+    size_t buf_size = INITIAL_BUF_SIZE;  // Initial buffer size
+    size_t pos = 0;
+    char *buf = (char *)malloc(buf_size);
+    if (!buf) {
+        return -1;  // Memory allocation failed
+    }
+
+    int ch;
+    while ((ch = fgetc(f)) != EOF && ch != '\n') {
+        // Resize buffer if needed
+        if (pos + 1 >= buf_size) {
+            size_t new_size = buf_size * 2;
+            char *new_buf = (char *)realloc(buf, new_size);
+            if (!new_buf) {
+                free(buf);
+                return -1;  // Memory allocation failed
+            }
+            buf = new_buf;
+            buf_size = new_size;
+        }
+
+        buf[pos++] = tolower(ch);
+    }
+
+    // If no characters were read and EOF is reached, return error
+    if (pos == 0 && ch == EOF) {
+        free(buf);
+        return -1;
+    }
+
+    buf[pos] = '\0';  // Null-terminate the string
+    *ret_str = buf;   // Return the allocated string
+    return 0;         // Success
 }

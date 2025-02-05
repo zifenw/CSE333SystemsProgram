@@ -43,10 +43,11 @@ void DocTable_Free(DocTable *table) {
   Verify333(table != NULL);
 
   // STEP 1.
+  // Free the id_to_name and name_to_id hash tables.
+  HashTable_Free(table->id_to_name, &free);
+  HashTable_Free(table->name_to_id, &free);
 
-
-
-  free(table);
+  free(table);  // Free the DocTable structure itself
 }
 
 int DocTable_NumDocs(DocTable *table) {
@@ -65,26 +66,53 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // STEP 2.
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
+  // Check if doc_name is NULL.
 
+  // Hash the document name
+  res = FNVHash64((unsigned char *) doc_name, strlen(doc_name));
+  // Look up the document name in the name->id hash table
+  int retval = HashTable_Find(table->name_to_id, res, &old_kv);
+  Verify333(retval != -1);  // Ensure no errors occurred
 
+  if (retval == 1) {
+    // Return the existing DocID if the document is already in the table
+    return *((DocID_t *) old_kv.value);
+  }
+  // Allocate memory for the document name copy
+  doc_copy = (char *) malloc(1 + strlen(doc_name));
+  Verify333(doc_copy != NULL);  // Ensure malloc succeeded
+  // Copy the document name into the allocated memory
+  snprintf(doc_copy, strlen(doc_name) + 1, "%s", doc_name);
+  // Ensure the copy matches the original
+  Verify333(strcmp(doc_copy, doc_name) == 0);
+
+  // Allocate memory for the new DocID
+  doc_id = (DocID_t *) malloc(sizeof(DocID_t));   
+  Verify333(doc_id != NULL);  // Ensure malloc succeeded
 
   *doc_id = table->max_id;
   table->max_id++;
 
   // STEP 3.
   // Set up the key/value for the id->name mapping, and do the insert.
-
-
+  kv.key = *doc_id;
+  kv.value = doc_copy;
+  // Insert into the id->name hash table
+  retval = HashTable_Insert(table->id_to_name, kv, &old_kv);
+  Verify333(retval == 0);  // Ensure the insert succeeded
 
   // STEP 4.
   // Set up the key/value for the name->id, and/ do the insert.
   // Be careful about how you calculate the key for this mapping.
   // You want to be sure that how you do this is consistent with
   // the provided code.
+  kv.key = res;
+  kv.value = doc_id;
+  // Insert into the name->id hash table
+  retval = HashTable_Insert(table->name_to_id, kv, &old_kv);
+  Verify333(retval == 0);  // Ensure the insert succeeded
 
-
-
-  return *doc_id;
+  return *doc_id;  // Return the new DocID
 }
 
 DocID_t DocTable_GetDocID(DocTable *table, char *doc_name) {
@@ -97,10 +125,19 @@ DocID_t DocTable_GetDocID(DocTable *table, char *doc_name) {
 
   // STEP 5.
   // Try to find the passed-in doc in name_to_id table.
+  // Hash the document name
+  key = FNVHash64((unsigned char *) doc_name, strlen(doc_name));
+  // Look up the document name in the name->id hash table
+  res = HashTable_Find(table->name_to_id, key, &kv);
+  Verify333(res != -1);  // Ensure no errors occurred
 
-
-
-  return INVALID_DOCID;  // you may need to change this return value
+  if (res == INVALID_DOCID) {
+    // Return INVALID_DOCID if the document is not found
+    return INVALID_DOCID;
+  } else {
+    // Return the DocID if the document is found
+    return *((uint64_t *) kv.value);
+  }
 }
 
 char* DocTable_GetDocName(DocTable *table, DocID_t doc_id) {
@@ -114,10 +151,18 @@ char* DocTable_GetDocName(DocTable *table, DocID_t doc_id) {
   // and either return the string (i.e., the (char *)
   // saved in the value field for that key) or
   // NULL if the key isn't in the table.
+  int res;
+  // Look up the DocID in the id->name hash table
+  res = HashTable_Find(table->id_to_name, doc_id, &kv);
+  Verify333(res != -1);  // Ensure no errors occurred
 
-
-
-  return NULL;  // you may need to change this return value
+  if (res == INVALID_DOCID) {
+    // Return NULL if the DocID is not found
+    return NULL;
+  } else {
+    // Return the document name if the DocID is found
+    return ((char *) kv.value);
+  }
 }
 
 HashTable* DT_GetIDToNameTable(DocTable *table) {

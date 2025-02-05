@@ -17,9 +17,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "libhw1/CSE333.h"
-#include "libhw1/HashTable.h"
-#include "libhw1/LinkedList.h"
+#include "../hw1/CSE333.h"
+#include "../hw1/HashTable.h"
+#include "../hw1/LinkedList.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -102,8 +102,8 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t doc_id,
   // STEP 1.
   // Remove this early return.  We added this in here so that your unittests
   // would pass even if you haven't finished your MemIndex implementation.
-  return;
 
+  // return;
 
   // First, we have to see if the passed-in word already exists in
   // the inverted index.
@@ -119,9 +119,19 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t doc_id,
     //       mapping.
     //   (3) insert the the new WordPostings into the inverted index (ie, into
     //       the "index" table).
+    wp = (WordPostings *) malloc(sizeof(WordPostings));
+    Verify333(wp != NULL);  // Ensure malloc succeeded
 
+    wp->word = word;  // Take ownership of the word string
 
+    // Allocate postings hash table
+    wp->postings = HashTable_Allocate(HASHTABLE_INITIAL_NUM_BUCKETS);
+    Verify333(wp->postings != NULL);  // Ensure allocation succeeded
 
+    mi_kv.key = key;
+    mi_kv.value = (HTValue_t)wp;
+    // Insert the new WordPostings into the index
+    Verify333(HashTable_Insert(index, mi_kv, &unused) == 0);
   } else {
     // Yes, this word already exists in the inverted index.  There's no need
     // to insert it again.
@@ -149,6 +159,10 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t doc_id,
   // The entry's key is this docID and the entry's value
   // is the "postings" (ie, word positions list) we were passed
   // as an argument.
+  postings_kv.key = (HTKey_t) doc_id;
+  postings_kv.value = (HTValue_t) postings;
+  // Insert the postings into the hash table
+  Verify333(HashTable_Insert(wp->postings, postings_kv, &unused) == 0);
 }
 
 LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
@@ -172,7 +186,42 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
   // structure (the initial computed rank is the number of times the word
   // appears in that document).  Finally, append the SearchResult onto ret_list.
 
+  // Hash the first query word
+  key = FNVHash64((unsigned char *) query[0], strlen(query[0]));
+  int res = HashTable_Find(index, key, &kv);
+  // no matching doc found
+  if (res == 0) {
+    return NULL;  // No documents match the first query word
+  }
 
+  // create an iterator iterate through the matching doc
+  wp = (WordPostings *) kv.value;
+  // Create an iterator for the postings hash table
+  HTIterator *htIter = HTIterator_Allocate(wp->postings);
+  Verify333(htIter != NULL);  // Ensure iterator allocation succeeded
+
+  ret_list = LinkedList_Allocate();  // Allocate the result list
+  Verify333(ret_list != NULL);  // Ensure allocation succeeded
+
+  while (HTIterator_IsValid(htIter)) {
+    // Allocate a SearchResult
+    SearchResult *sr = (SearchResult *) malloc(sizeof(SearchResult));
+    Verify333(sr !=NULL);  // Ensure allocation succeeded
+
+    // Get the next document's postings
+    res = HTIterator_Get(htIter, &kv);
+    Verify333(res == 1);  // Ensure the iterator is valid
+
+    // Set the document ID
+    sr->doc_id = (DocID_t)kv.key;
+    // Set the rank (number of occurrences)
+    sr->rank = LinkedList_NumElements((LinkedList *) kv.value);
+
+    // Append the SearchResult to the result list
+    LinkedList_Append(ret_list, (LLPayload_t) sr);
+    HTIterator_Next(htIter);  // Move to the next document
+  }
+  HTIterator_Free(htIter);  // Free the iterator
 
   // Great; we have our search results for the first query
   // word.  If there is only one query word, we're done!
@@ -193,7 +242,16 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
     // If there are no matches, it means the overall query
     // should return no documents, so free ret_list and return NULL.
 
+    // Hash the next query word
+    key = FNVHash64((unsigned char *) query[i], strlen(query[i]));
+    res = HashTable_Find(index, key, &kv);
+    Verify333(res != -1);  // Ensure no errors occurred
 
+    if (res == 0) {
+      // Free the result list and return NULL
+      LinkedList_Free(ret_list, &free);
+      return NULL;
+    }
 
     // STEP 6.
     // There are matches.  We're going to iterate through
@@ -206,12 +264,32 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int query_len) {
     // number of matches for the current word.
     //
     // If it isn't, we delete that docID from the search result list.
+
+    // Create an iterator for the result list
     ll_it = LLIterator_Allocate(ret_list);
-    Verify333(ll_it != NULL);
+    Verify333(ll_it != NULL);  // Ensure iterator allocation succeeded
+    // Get the number of documents in the result list
     num_docs = LinkedList_NumElements(ret_list);
+    // Get the WordPostings for the current query word
+    wp = kv.value;
     for (j = 0; j < num_docs; j++) {
+      SearchResult *sr;
+      LLIterator_Get(ll_it, (void **)&sr);  // Get the next SearchResult
+
+      // Check if the document matches the current query word
+      res = HashTable_Find(wp->postings, sr->doc_id, &kv);
+      Verify333(res != -1);  // Ensure no errors occurred
+
+      if (res == 0) {
+        // Remove the document from the result list
+        res = LLIterator_Remove(ll_it, &free);
+      } else {
+        // Update the rank
+        sr->rank += LinkedList_NumElements((LinkedList *) kv.value);
+        LLIterator_Next(ll_it);  // Move to the next document
+      }
     }
-    LLIterator_Free(ll_it);
+    LLIterator_Free(ll_it);  // Free the iterator
 
     // We've finished processing this current query word.  If there are no
     // documents left in our result list, free ret_list and return NULL.

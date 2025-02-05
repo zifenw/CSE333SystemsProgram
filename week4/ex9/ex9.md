@@ -64,6 +64,12 @@ namespace vector333 {
 #endif // VECTOR_H_
 ```
 
+### Test
 ```
+g++ -Wall -g -std=c++17 -o ex ex8.cc
+cpplint ex8.cc
 
+ssh zifenw@attu.cs.washington.edu
+valgrind --leak-check=full ./ex8
+python3 cpplint.py --clint ex8.cc
 ```

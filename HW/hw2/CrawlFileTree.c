@@ -131,14 +131,18 @@ static void HandleDir(char *dirpath, DIR *d, DocTable **doctable,
   // Change/add to this loop to use the "readdir()" system call to
   // read the directory entries in the loop ("man 3 readdir").
   // Exit out of the loop when we reach the end of the directory.
-  for (i = 0 ; false; i++) {
+  i = 0;
+  while ((dirent = readdir(d)) != NULL) {  // Iterate through directory entries
     // STEP 2.
     // If the directory entry is named "." or "..", ignore it.  Use the C
     // "continue" expression to begin the next iteration of the loop.  What
     // field in the dirent could we use to find out the name of the entry?
     // How do you compare strings in C?
 
-
+    // If the directory entry is named "." or "..", ignore it.
+    if (strcmp(dirent->d_name, ".") == 0 || strcmp(dirent->d_name, "..") == 0) {
+      continue;  // Skip "." and ".."
+    }
     //
     // Record the name and directory status.
     //
@@ -184,7 +188,18 @@ static void HandleDir(char *dirpath, DIR *d, DocTable **doctable,
       // using/ HandleDir() in our second pass.
       //
       // If it is neither, skip the file.
+      if (S_ISREG(st.st_mode)) {
+        entries[i].is_dir = false;  // Regular file
+      } else if (S_ISDIR(st.st_mode)) {
+        entries[i].is_dir = true;  // Directory
+      } else {
+        continue;  // Skip if it's neither a file nor a directory
+      }
+    } else {
+      free(entries[i].path_name);  // Free memory if stat fails
+      continue;
     }
+    i++;  // move to next entry
   }  // end iteration over directory contents ("first pass").
 
   // Sort the directory's metadata alphabetically.
@@ -194,19 +209,19 @@ static void HandleDir(char *dirpath, DIR *d, DocTable **doctable,
   // Second pass, processing the now-sorted directory metadata.
   for (i = 0; i < num_entries; i++) {
     if (!entries[i].is_dir) {
+      // Process regular files
       HandleFile(entries[i].path_name, doctable, index);
     } else {
-      DIR *sub_dir = opendir(entries[i].path_name);
+      DIR *sub_dir = opendir(entries[i].path_name);  // Open subdirectory
       if (sub_dir != NULL) {
+        // Recursively process subdirectory
         HandleDir(entries[i].path_name, sub_dir, doctable, index);
-        closedir(sub_dir);
+        closedir(sub_dir);  // Close subdirectory
       }
     }
-
-    // Free the memory we'd allocated for the entries.
-    free(entries[i].path_name);
+    free(entries[i].path_name);  // Free memory for the path name
   }
-  free(entries);
+  free(entries);  // Free memory for the entries array
 }
 
 static void HandleFile(char *file_path, DocTable **doctable,
@@ -220,16 +235,21 @@ static void HandleFile(char *file_path, DocTable **doctable,
   // Invoke ParseIntoWordPositionsTable() to build the word hashtable out
   // of the file.
 
-
-
+  // Parse the file into a word positions table.
+  tab = ParseIntoWordPositionsTable(ReadFileToString(file_path, &file_len));
+  if (tab == NULL) {
+    return;  // Return if parsing fails
+  }
   // STEP 5.
   // Invoke DocTable_Add() to register the new file with the doctable.
-
+  doc_id = DocTable_Add(*doctable, file_path);  // Add file to DocTable
+  Verify333(doc_id != 0);  // Ensure DocID is valid
 
 
   // Loop through the newly-built hash table.
+  // Create an iterator for the word positions table
   it = HTIterator_Allocate(tab);
-  Verify333(it != NULL);
+  Verify333(it != NULL);  // Ensure iterator allocation succeeded
   while (HTIterator_IsValid(it)) {
     WordPositions *wp;
     HTKeyValue_t kv;
@@ -238,7 +258,10 @@ static void HandleFile(char *file_path, DocTable **doctable,
     // Use HTIterator_Remove() to extract the next WordPositions structure out
     // of the hashtable. Then, use MemIndex_AddPostingList() to add the word,
     // document ID, and positions linked list into the inverted index.
-
+    HTIterator_Remove(it, &kv);  // Remove the next entry from the table
+    wp = (WordPositions *) kv.value;  // Get the WordPositions structure
+    // Add to MemIndex
+    MemIndex_AddPostingList(*index, wp->word, doc_id, wp->positions);
 
 
     // Since we've transferred ownership of the memory associated with both

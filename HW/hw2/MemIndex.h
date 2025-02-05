@@ -14,8 +14,8 @@
 
 #include <stdbool.h>
 
-#include "libhw1/HashTable.h"
-#include "libhw1/LinkedList.h"
+#include "../hw1/LinkedList.h"
+#include "../hw1/HashTable.h"
 #include "./DocTable.h"
 
 // A word's byte offset from the start of a document.

@@ -121,13 +121,13 @@ char* ReadFileToString(const char *file_name, int *size) {
   left_to_read = file_stat.st_size;
   num_read = 0;
   while (left_to_read > 0) {
-    result = read(fd, buf + num_read, left_to_read);
+    result = read(fd, buf + num_read, left_to_read);  // Read from the file
     if (result == 0) {
       // End of File
       left_to_read = 0;
     } else if (result == -1) {
       if (errno != EAGAIN && errno != EINTR) {
-        free(buf);
+        free(buf);  // Free the buffer if an unrecoverable error occurs
         return NULL;
       }
       // continue read the file if error is recoverable
@@ -237,9 +237,28 @@ static void InsertContent(HashTable *tab, char *content) {
   // Each time you find a word that you want to record in the hashtable, call
   // AddWordPosition() helper with appropriate arguments, e.g.,
   //     AddWordPosition(tab, wordstart, pos);
-
   while (1) {
-    break;  // you may need to change this logic
+    if (*cur_ptr == '\0') {
+      // Handle the last word if it exists
+      if (cur_ptr != content && isalpha(*(cur_ptr - 1)) != 0) {
+        // Add the last word to the hash table
+        AddWordPosition(tab, word_start, (word_start - content));
+      }
+      break;  // Exit the loop at the end of the string
+    } else if (isalpha(*cur_ptr) != 0) {
+      *cur_ptr = tolower(*cur_ptr);  // Convert the character to lowercase
+    } else {
+      // Replace the boundary character with a null terminator
+      *cur_ptr = '\0';
+      // Add the word and its position to the hashtable
+      if (cur_ptr != content && isalpha(*(cur_ptr - 1)) != 0) {
+        // Add the word to the hash table
+        AddWordPosition(tab, word_start, (word_start - content));
+      }
+      // Move the word start pointer to the next character
+      word_start = cur_ptr + 1;
+    }
+    cur_ptr++;  // Move to the next character
   }  // end while-loop
 }
 
@@ -271,5 +290,32 @@ static void AddWordPosition(HashTable *tab, char *word,
     // No; this is the first time we've seen this word.  Allocate and prepare
     // a new WordPositions structure, and append the new position to its list
     // using a similar ugly hack as right above.
+
+    char *newstr;
+    HTKeyValue_t oldkv;
+    int retval;
+    // allocate space for WordPositions
+    wp = (WordPositions*)malloc(sizeof(WordPositions));
+    Verify333(wp != NULL);
+
+    // allocate space for string in WordPositions
+    newstr = (char *) malloc(strlen(word) + 1);
+    Verify333(newstr != NULL);
+
+    // copy the word
+    strncpy(newstr, word, strlen(word) + 1);
+    wp->word = newstr;
+
+    // allocate space for linkedlist
+    wp->positions = LinkedList_Allocate();
+    Verify333(wp->positions != NULL);
+
+    // append the position of the string to the positions list
+    LinkedList_Append(wp->positions, (LLPayload_t) (int64_t) pos);
+
+    kv.key = hash_key;
+    kv.value = (void *)wp;
+    retval = HashTable_Insert(tab, kv, &oldkv);
+    Verify333(retval == 0);
   }
 }

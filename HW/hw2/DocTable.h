@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 
-#include "libhw1/HashTable.h"
+#include "../hw1/HashTable.h"
 
 // A type definition for document IDs.  '0' is a reserved value, indicating
 // the "invalid" documentID.  We use an unsigned type for document ids so
