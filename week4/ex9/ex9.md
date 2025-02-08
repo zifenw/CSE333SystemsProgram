@@ -66,7 +66,7 @@ namespace vector333 {
 
 ### Test
 ```
-g++ -Wall -g -std=c++17 -o ex ex8.cc
+g++ -Wall -g -std=c++17 -o ex8 ex8.cc
 cpplint ex8.cc
 
 ssh zifenw@attu.cs.washington.edu
