@@ -41,14 +41,17 @@ FileIndexReader::FileIndexReader(const string &file_name,
   // implemented by the POSIX libraries, the operating system, or even
   // in the hardware itself.
 
+  // void setbuf(FILE *stream, char *buffer);
+  setbuf(file_, nullptr);  
 
   // STEP 2.
   // Read the entire file header and convert to host format.
-
+  Verify333(fread(&header_, sizeof(header_), 1, file_) == 1);
+  header_.ToHostFormat();
 
   // STEP 3.
   // Verify that the magic number is correct.  Crash if not.
-
+  Verify333(header_.magic_number == kMagicNumber);
 
   // Make sure the index file's length lines up with the header fields.
   struct stat f_stat;
@@ -71,6 +74,18 @@ FileIndexReader::FileIndexReader(const string &file_name,
       // You should only need to modify code inside the while loop for
       // this step. Remember that file_ is now unbuffered, so care needs
       // to be put into how the file is sequentially read
+      int read_bytes  = fread(buf, 1, kBufSize, file_);
+      // Ensure that fread() didn't return 0, 
+      // which would indicate an unexpected read failure.
+      Verify333(read_bytes != 0);
+
+      // Process each byte read from the file 
+      // and fold it into the CRC checksum.
+      for (int i = 0; i < read_bytes; i++) {
+        crc_obj.FoldByteIntoCRC(buf[i]);
+      }
+      // Update the remaining bytes to read.
+      left_to_read -= read_bytes;
     }
     Verify333(crc_obj.GetFinalCRC() == header_.checksum);
   }

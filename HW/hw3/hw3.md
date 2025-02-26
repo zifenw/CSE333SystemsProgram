@@ -5,6 +5,16 @@ wget https://example.com/file.txt
 
 valgrind --leak-check=full ./solution_binaries/test_suite
 
+valgrind --leak-check=full ./test_tree/tiny  /tmp/tiny.idx
+
+valgrind --leak-check=full ./test_suite
+python3 ../cpplint.py --clint *.cc
+
+
+
+
+
+
 g++ -Wall -g -std=c++17 -o ex14 ex14.cc
 ./ex14
 cpplint ex14.cc
@@ -33,9 +43,9 @@ At a high-level, the index file looks like the figure on the right. The index fi
 
 **`Header`**: an index file's header contains metadata about the rest of the index file.标头：索引文件的标头包含有关索引文件其余部分的元数据。
 
-The first four bytes of the header are a magic number, or format indicator. Specifically, we use the 32-bit number 0xCAFEF00D. We will always write the magic number out as the last step in preparing an index file. This way, if the program crashes partway through writing one, the magic number will be missing, and it will be easy to tell that the index file is corrupt.标头的前四个字节是一个幻数或格式指示符。具体来说，我们使用32位数字0xCAFEF00D。在准备索引文件的最后一步，我们总是会写出神奇的数字。这样，如果程序在写入过程中中途崩溃，则魔术数字将丢失，并且很容易判断索引文件已损坏。
+The first four bytes of the header are a `magic number`, or format indicator. Specifically, we use the 32-bit number 0xCAFEF00D. We will always write the magic number out as the last step in preparing an index file. This way, if the program crashes partway through writing one, the magic number will be missing, and it will be easy to tell that the index file is corrupt.标头的前四个字节是一个幻数或格式指示符。具体来说，我们使用32位数字0xCAFEF00D。在准备索引文件的最后一步，我们总是会写出神奇的数字。这样，如果程序在写入过程中中途崩溃，则魔术数字将丢失，并且很容易判断索引文件已损坏。
 
-The next four bytes are a checksum of the doctable and index regions of the file. A checksum is a mathematical signature of a bunch of data, kind of like a hash value. By including a checksum of most of the index file within the header, we can tell if the index file has been corrupted, such as by a disk error. If the checksum stored in the header doesn't match what we recalculate when opening an index file, we know the file is corrupt and we can discard it.接下来的四个字节是文件的文档表和索引区域的校验和。校验和是一组数据的数学签名，有点像哈希值。通过在标头中包含大多数索引文件的校验和，我们可以判断索引文件是否已损坏，例如磁盘错误。如果存储在标头中的校验和与打开索引文件时重新计算的值不匹配，我们就知道文件已损坏，可以丢弃它。
+The next four bytes are a `checksum` of the doctable and index regions of the file. A checksum is a mathematical signature of a bunch of data, kind of like a hash value. By including a checksum of most of the index file within the header, we can tell if the index file has been corrupted, such as by a disk error. If the checksum stored in the header doesn't match what we recalculate when opening an index file, we know the file is corrupt and we can discard it.接下来的四个字节是文件的文档表和索引区域的校验和。校验和是一组数据的数学签名，有点像哈希值。通过在标头中包含大多数索引文件的校验和，我们可以判断索引文件是否已损坏，例如磁盘错误。如果存储在标头中的校验和与打开索引文件时重新计算的值不匹配，我们就知道文件已损坏，可以丢弃它。
 
 The next four bytes store the size of the doctable region of the file. The size is stored as a 32-bit, signed, big endian integer.接下来的四个字节存储文件的doctable区域的大小。大小存储为32位、有符号、大端序整数。
 
@@ -148,11 +158,83 @@ static int WriteHTBucket(FILE *f, IndexFileOffset_t offset,
       LLIterator_Free(it);
       return kFailedWrite;
     }
-```
-6. Once you think you have the writer working, compile and run the test_suite as a first step. Next, use your buildfileindex binary to produce an index file (we suggest indexing something small, like ./test_tree/tiny as a good test case). After that, use the solution_binaries/filesearchshell program that we provide, passing it the name of the index file that your buildfileindex produces, to see if it's able to successfully parse the file and issue queries against it. If not, you need to fix some bugs before you move on!
-[Aside: If you write the index files to your personal directories on a CSE lab machine or on attu, you may find that the program runs very slowly. That's because home directories on those machines on a network file server, and buildfileindex does a huge number of small write operations, which can be quite slow over the network. To speed things up dramatically we suggest you write the index files into /tmp, which is a directory on a local disk attached to each machine. Be sure to remove the files when you're done so the disk doesn't fill up.]
 
-As an even more rigorous test, try running the hw3fsck program we've provided in solution_binaries against the index that you've produced. hw3fsck scans through the entire index, checking every field inside the file for reasonableness. It tries to print out a helpful message if it spots some kind of problem.
-Once you pass hw3fsck and once you're able to issue queries against your file indices, then rerun your buildfileindex program under valgrind and make sure that you don't have any memory leaks or memory errors.
+```
+
+### **`reinterpret_cast<>` vs. `static_cast<>`**
+
+| **转换类型** | **C++ 推荐的 cast** | **是否可用 C-style cast?** | **说明** |
+| --- | --- | --- | --- |
+| `int → double` | ✅ `static_cast<double>(x)` | ✅ `(double)x` | 普通数值转换 |
+| `void* → 具体类型指针` | ✅ `static_cast<T*>(p)` | ✅ `(T*)p` | 确保 `p` 原本是 `T*` |
+| `int → void*` / `指针 → int` | ✅ `reinterpret_cast<void*>(i)` | ✅ `(void*)i` | 指针和整数转换 |
+| `Base* → Derived*` (多态) | ✅ `dynamic_cast<Derived*>(b)` | ❌ `(Derived*)b` | 运行时检查，多态安全转换 |
+| `const int* → int*` | ✅ `const_cast<int*>(p)` | ❌ `(int*)p` | 移除 `const` 修饰符 |
+
+
+6. Once you think you have the writer working, compile and run the test_suite as a first step. Next, use your buildfileindex binary to produce an index file (we suggest indexing something small, like ./test_tree/tiny as a good test case). After that, use the solution_binaries/filesearchshell program that we provide, passing it the name of the index file that your buildfileindex produces, to see if it's able to successfully parse the file and issue queries against it. If not, you need to fix some bugs before you move on! 一旦你认为你有了编写器，编译并运行test_suite作为第一步。接下来，使用您的buildfileindex二进制文件生成一个索引文件（我们建议对一些小的东西进行索引，比如./test_tree/minily作为一个好的测试用例）。之后，使用我们提供的solution_binaries/filesearchshell程序，将buildfileindex生成的索引文件的名称传递给它，看看它是否能够成功解析该文件并对其发出查询。如果不能，您需要在继续之前修复一些错误！
+
+[Aside: If you write the index files to your personal directories on a CSE lab machine or on attu, you may find that the program runs very slowly. That's because home directories on those machines on a network file server, and buildfileindex does a huge number of small write operations, which can be quite slow over the network. To speed things up dramatically we suggest you write the index files into /tmp, which is a directory on a local disk attached to each machine. Be sure to remove the files when you're done so the disk doesn't fill up.] [旁白：如果你将索引文件写入CSE实验室机器或attu上的个人目录，你可能会发现程序运行非常缓慢。这是因为网络文件服务器上这些机器上的主目录，而buildfileindex会执行大量的小写操作，这在网络上可能会非常缓慢。为了大大加快速度，我们建议你将指数文件写入/tmp，这是连接到每台机器的本地磁盘上的一个目录。完成后一定要删除这些文件，这样磁盘就不会填满。]
+
+7. As an even more rigorous test, try running the hw3fsck program we've provided in solution_binaries against the index that you've produced. hw3fsck scans through the entire index, checking every field inside the file for reasonableness. It tries to print out a helpful message if it spots some kind of problem.作为一项更严格的测试，请尝试根据您生成的索引运行我们在solution_binaries中提供的hw3fsck程序。hw3fsck扫描整个索引，检查文件中的每个字段是否合理。如果发现某种问题，它会尝试打印出有用的信息。
+Once you pass hw3fsck and once you're able to issue queries against your file indices, then rerun your buildfileindex program under valgrind and make sure that you don't have any memory leaks or memory errors.通过hw3fsck并能够对文件索引发出查询后，请在valgrind下重新运行buildfileindex程序，并确保没有任何内存泄漏或内存错误。
 
 Congrats, you've passed part A of the assignment!
+
+## Part B: Index Lookup
+Now that you have a working memory-to-file index writer, the next step is to implement code that knows how to read an index file and lookup query words and docids against it. We've given you the scaffolding of the implementation that does this, and you'll be finishing our implementation.现在您已经有了文件索引编写器的工作内存，下一步是实现知道如何读取索引文件并查找查询词和文档的代码。我们已经为您提供了实现此功能的框架，您将完成我们的实现。
+
+Instructions
+
+1. Start by looking inside `FileIndexReader.h`. Notice that we're now in full-blown C++ land; you'll be implementing constructors, manipulating member variables and functions, and so on. Next, open up `FileIndexReader.cc`. Your job is to finish the implementation of its constructor, which reads the header of the index file and stores various fields as private member variables. As above, look for "STEP:" to figure out what you need to implement. When you're done, recompile and re-run the test suite. You should pass all the tests for test_fileindex_reader.cc once you have implemented FileIndexReader successfully.首先看看FileIndexReader.h内部。请注意，我们现在处于成熟的C++领域；您将实现构造函数、操纵成员变量和函数等。接下来，打开FileIndexReader.cc。您的工作是完成其构造函数的实现，该构造函数读取索引文件的头部并将各种字段存储为私有成员变量。如上所述，查找“STEP：”以找出需要实施的内容。完成后，重新编译并重新运行测试套件。成功实现FileIndexReader后，您应该通过test_fileindex_reader.cc的所有测试。
+
+```cpp
+//关键字 explicit 的作用是 防止隐式类型转换，确保构造函数只能通过直接调用来实例化对象，而不能通过隐式转换的方式进行对象创建。
+/*
+功能：构造函数，打开指定的索引文件，并可选地进行校验。
+file_name：索引文件的路径。
+validate：是否验证文件的校验和，默认 true。 
+*/
+explicit FileIndexReader(const std::string &file_name, bool validate = true);
+```
+2. Next, move on to `HashTableReader.h`. Read through it to see what the class does. Don't worry about the copy constructor and assignment operator details (though if you're curious, read through them to see what they're doing and why). This class serves as a base class for other subclasses. The job of a HashTableReader is to provide most of the generic hash-table lookup functionality; it knows how to look through buckets and chains, returning offsets to elements associated with a hash value. Open up `HashTableReader.cc`. Implement the "STEP:" components in the constructor and the LookupElementPositions function. When you're done, recompile and run the unit tests to see if you pass test_hashtablereader.cc unit test.接下来，转到HashTableReader.h。通读它，看看类做了什么。不要担心复制构造函数和赋值运算符的细节（不过如果你很好奇，可以通读它们，看看它们在做什么以及为什么）。此类用作其他子类的基类。HashTableReader的工作是提供大部分通用哈希表查找功能；它知道如何查看bucket和链，返回与哈希值关联的元素的偏移量。打开HashTableReader.cc。在构造函数和LookupElementPositions函数中实现“STEP:”组件。完成后，重新编译并运行单元测试，看看是否通过了test_hashtablereader.cc单元测试。
+
+3.Now it's time to move on to `DocTableReader.h`. Read through it, and note that it is a subclass of HashTableReader. It inherits LookupElementPositions() and other aspects, but provides some new functionality. Next, open up `DocTableReader.cc`, and implement the "STEP:" functionality. See how well you do on its unit test (and valgrind) when you're done.现在是时候转到DocTableReader.h了。通读一下，注意它是HashTableReader的一个子类。它继承了LookupElementPositions（）和其他方面，但提供了一些新功能。接下来，打开DocTableReader.cc，并实现“STEP：”功能。当你完成它的单元测试（和valgrind）时，看看你做得有多好。
+
+4. Next, lets move on to `IndexTableReader.h`. Read through it and understand its role. Next, open up `IndexTableReader.cc` and implement the "STEP:" functionality. Test against the unit tests (and valgrind).接下来，让我们继续阅读IndexTableReader.h。通读它并了解它的作用。接下来，打开IndexTableReader.cc并实现“STEP:”功能。根据单元测试（和valgrind）进行测试。
+
+5. Next, do the same with `DocIDTableReader.h` and `DocIDTableReader.cc`.接下来，对DocIDTableReader.h和DocIDTableReader.cc执行相同的操作。
+
+6. We're almost there! Open up `QueryProcessor.h` and understand how it is supposed to work. Check out `test_queryprocessor.cc` for more information. Now open up `QueryProcessor.cc` and read through our implementation of the constructor and destructor.我们快到了！打开QueryProcessor.h，了解它应该如何工作。有关更多信息，请查看test_QueryProcessor.cc。现在打开QueryProcessor.cc，阅读构造函数和析构函数的实现。
+
+```cpp
+  // This method processes a query against the indices and returns a
+  // vector of QueryResults, sorted in descending order of rank.  If no
+  // documents match the query, then a valid but empty vector will be
+  // returned.
+  std::vector<QueryResult> ProcessQuery(
+      const std::vector<std::string> &query) const;
+// 此方法处理针对索引的查询，并返回一个QueryResults向量，按排名降序排序。如果没有文档与查询匹配，则将返回一个有效但为空的向量。
+
+```
+
+This part of the assignment is the most open-ended. We've given you the function definition for ProcessQuery(), and also a clue about what you should be building up and returning. But, we've given you nothing about its implementation. You get to implement it entirely on your own; you might want to define helper private member functions, you might want to define other structures to help along the way, etc.; it's entirely up to you. But, once you're finished, you'll need to pass our unit test to know you've done it correctly. 这部分作业是最开放的。我们已经为您提供了ProcessQuery（）的函数定义，以及关于应该构建和返回什么的线索。但是，我们没有给你任何关于它的实施情况。你可以完全靠自己实现它；您可能希望定义辅助私有成员函数，您可能希望在此过程中定义其他结构以提供帮助，等等。；这完全取决于你。但是，一旦你完成了，你需要通过我们的单元测试才能知道你做得对。
+
+As a hint, you should be able to take inspiration from what you did to implement the query processor in HW2. Here, it's only a little bit more complicated. You want to process the query against each index, and then intersect each index's results together and do a final sort (use the STL's sort). Remember that processing a query against an index means ensuring all query words are present in each matching document, and remember how ranking works. Then, once you have query results from each index, you'll append them all together to form your final query results.作为提示，您应该能够从HW2中实现查询处理器的过程中获得灵感。在这里，它只是稍微复杂一点。您希望对每个索引处理查询，然后将每个索引的结果相交在一起并进行最终排序（使用STL的排序）。记住，根据索引处理查询意味着确保所有查询词都出现在每个匹配的文档中，并记住排名是如何工作的。然后，一旦您从每个索引中获得了查询结果，您将把它们全部附加在一起，形成最终的查询结果。
+
+One more hint, once you think you have this working, move on to Part C and finish our filesearchshell implementation. You'll be able to test the output of your filesearchshell against ours (in solution_binaries/) as a final sanity check.还有一个提示，一旦你认为你已经实现了这一点，请继续进行C部分并完成我们的文件搜索外壳实现。作为最终的健全性检查，您将能够根据我们的（在solution_binaries/中）测试您的文件搜索外壳的输出。
+
+Also, now would be a great time to run valgrind over the unit tests to verify you have no memory leaks or memory errors.此外，现在是在单元测试中运行valgrind以验证没有内存泄漏或内存错误的好时机。
+
+You're done with part B!
+
+## Part C: Search Shell
+For Part C, your job is to implement a search shell, just like in HW2, but this time using your HW3 infrastructure you completed parts A and B.对于C部分，你的工作是实现一个搜索shell，就像在HW2中一样，但这次使用HW3基础设施，你完成了a和B部分。
+
+1. Open up filesearchshell.cc and read through it. Note that unlike parts A and B, we have given you almost nothing about the implementation of the filesearchshell besides a really long (and hopefully helpful) comment. Implement filesearchshell.cc.打开filesearchshell.cc并通读一遍。请注意，与A和B部分不同，除了一条非常长（希望有用）的注释外，我们几乎没有给你任何关于filesearchshell实现的信息。实现文件earchshell.cc。
+
+2. Try using your filesearchshell binary. You can compare the output of your binary against a transcript of our solution. The transcripts should match precisely, except perhaps for the order of equally ranked matches. You can also walk your filesearchshell against a very tiny index -- tiny.idx -- in the debugger to see if it's reading the correct fields and jumping to the correct offsets.尝试使用您的文件搜索shell二进制文件。您可以将二进制文件的输出与我们解决方案的副本进行比较。成绩单应该精确匹配，除了排名相同的比赛顺序。您还可以在调试器中针对非常小的索引tiny.idx遍历文件搜索外壳，查看它是否读取了正确的字段并跳转到正确的偏移量。
+
+3. Also, note that you can hit control-D to exit the filesearchshell. filesearchshell ought to clean up all allocated memory before exiting. So, run your filesearchshell under valgrind to ensure there are no leaks or errors.此外，请注意，您可以点击control-D退出文件搜索外壳。filesearchshell应该在退出之前清理所有分配的内存。因此，在valgrind下运行您的文件搜索shell，以确保没有泄漏或错误。
+
+Congrats, you're done with (the mandatory parts) of HW3!!

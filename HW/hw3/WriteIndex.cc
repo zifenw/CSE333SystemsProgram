@@ -319,7 +319,7 @@ static int WriteHTBucketRecord(FILE *f,
                                IndexFileOffset_t bucket_offset) {
   // STEP 5.
   // Initialize a BucketRecord in network byte order.
-  BucketRecord bucket_rec(num_elts, offset);
+  BucketRecord bucket_rec(num_elts, bucket_offset);
   bucket_rec.ToDiskFormat();
 
   // fseek() to where we want to write this record.
@@ -395,7 +395,7 @@ static int WriteHTBucket(FILE *f, IndexFileOffset_t offset, LinkedList *li,
 
     // Advance to the next element in the chain, updating our offsets.
     record_pos += sizeof(ElementPositionRecord);
-    element_pos += 1;  // you may need to change this logic
+    element_pos += elt_byte;  // you may need to change this logic
     LLIterator_Next(it);
   }
   LLIterator_Free(it);
@@ -414,8 +414,7 @@ static int WriteDocidToDocnameFn(FILE *f, IndexFileOffset_t offset,
                                  HTKeyValue_t *kv) {
   // STEP 9.
   // Determine the file name length
-  int16_t file_name_bytes = kFailedWrite;  // you may need to change this logic
-
+  int16_t file_name_bytes = strlen(reinterpret_cast<char*>(kv->value));
 
   // fwrite() the docid from "kv".  Remember to convert to
   // disk format before writing.
@@ -434,11 +433,13 @@ static int WriteDocidToDocnameFn(FILE *f, IndexFileOffset_t offset,
   // fwrite() the file name.  We don't write the null-terminator from the
   // string, just the characters, since we've already written a length
   // field for the string.
-
+  if (fwrite(reinterpret_cast<char*>(kv->value), file_name_bytes, 1, f) != 1) {
+    return kFailedWrite;
+  }
 
   // STEP 11.
   // Calculate and return the total amount written.
-  return kFailedWrite;  // you may need to change this return value
+  return file_name_bytes + sizeof(header);
 }
 
 // This write_element_fn is used to write a DocID + position list
@@ -461,6 +462,21 @@ static int WriteDocIDToPositionListFn(FILE *f,
   // Write the header, in disk format.
   // You'll need to fseek() to the right location in the file.
 
+  DocIDElementHeader header(doc_id, num_positions);
+  header.ToDiskFormat();
+
+  // Move file pointer to the designated offset before writing.
+  if (fseek(f, offset, SEEK_SET) != 0) {
+    return kFailedWrite;
+  }
+
+  // Write the header to the file.
+  if (fwrite(&header, sizeof(header), 1, f) != 1) {
+    return kFailedWrite;
+  }
+
+  // Track total bytes written.
+  int written_bytes = sizeof(header);
 
   // Loop through the positions list, writing each position out.
   DocIDElementPosition position;
@@ -470,10 +486,25 @@ static int WriteDocIDToPositionListFn(FILE *f,
     // STEP 13.
     // Get the next position from the list.
 
+    // Retrieve the next position from the linked list.
+    LLPayload_t payload;
+    LLIterator_Get(it, &payload);    
 
     // STEP 14.
     // Truncate to 32 bits, then convert it to network order and write it out.
 
+    // Extract and truncate the position to 32 bits.
+    position.position = *reinterpret_cast<uint32_t*>(&payload);
+    position.ToDiskFormat();
+
+    // Write the position to the file.
+    if (fwrite(&position, sizeof(uint32_t), 1, f) != 1) {
+      LLIterator_Free(it);
+      return kFailedWrite;
+    }
+
+    // Update the count of written bytes.
+    written_bytes += sizeof(position);
 
     // Advance to the next position.
     LLIterator_Next(it);
@@ -482,9 +513,7 @@ static int WriteDocIDToPositionListFn(FILE *f,
 
   // STEP 15.
   // Calculate and return the total amount of data written.
-
-
-  return kFailedWrite;  // you may need to change this return value
+  return written_bytes;
 }
 
 // This write_element_fn is used to write a WordPostings
@@ -500,7 +529,7 @@ static int WriteWordToPostingsFn(FILE *f,
 
   // STEP 16.
   // Prepare the wordlen field.
-  int16_t word_bytes = kFailedWrite;  // you may need to change this logic
+  int16_t word_bytes = static_cast<int16_t>(strlen(wp->word));
 
   // Write the nested DocID->positions hashtable (i.e., the "docID
   // table" element in the diagrams).  Use WriteHashTable() to do it,
@@ -519,17 +548,24 @@ static int WriteWordToPostingsFn(FILE *f,
   // STEP 17.
   // Write the header, in network order, in the right place in the file.
   WordPostingsHeader header(word_bytes, ht_bytes);
-
-
+  header.ToDiskFormat();
+  // fseek() to the provided offset and then write the header.
+  if (fseek(f, offset, SEEK_SET) != 0) {
+    return kFailedWrite;
+  }
+  if (fwrite(&header, sizeof(WordPostingsHeader), 1, f) != 1) {
+    return kFailedWrite;
+  }
 
   // STEP 18.
   // Write the word itself, excluding the null terminator, in the right
   // place in the file.
-
-
+  if (fwrite(wp->word, word_bytes, 1, f) != 1) {
+    return kFailedWrite;
+  }
 
   // STEP 19.
   // Calculate and return the total amount of data written.
-  return kFailedWrite;  // you may need to change this return value
+  return sizeof(header) + ht_bytes + word_bytes;
 }
 }  // namespace hw3

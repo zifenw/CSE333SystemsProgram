@@ -16,7 +16,8 @@
 #include <list>
 #include <string>
 #include <vector>
-
+#include <memory>
+#include <unordered_map>
 extern "C" {
   #include "./libhw1/CSE333.h"
 }
@@ -27,6 +28,14 @@ using std::string;
 using std::vector;
 
 namespace hw3 {
+
+// This helper function takes two DocIDElementHeader lists as input.
+// It finds the common elements (documents with the same doc_id) between
+// both lists and returns a new list containing these common doc_ids, with
+// the number of occurrences for each doc_id summed from both lists.
+static list<DocIDElementHeader> MergeDocIDLists
+       (const list<DocIDElementHeader>& list1,
+        const list<DocIDElementHeader>& list2);
 
 QueryProcessor::QueryProcessor(const list<string> &index_list, bool validate) {
   // Stash away a copy of the index list.
@@ -80,10 +89,71 @@ QueryProcessor::ProcessQuery(const vector<string> &query) const {
   // (the only step in this file)
   vector<QueryProcessor::QueryResult> final_result;
 
+  // Iterate over each index file to process the query
+  for (int i = 0; i < array_len_; i++) {
+    IndexTableReader* itr = itr_array_[i];
 
+    // Look up the DocID list for the first query word
+    auto first_reader =
+    std::unique_ptr<DocIDTableReader>(itr->LookupWord(query[0]));
+    if (!first_reader) {  // skip if doesn't exist
+      continue;
+    }
+    list<DocIDElementHeader> current_docs = first_reader->GetDocIDList();
+    // Process the subsequent query words,
+    // performing intersection and accumulation operations
+    for (size_t j = 1; j < query.size(); ++j) {
+      auto next_reader =
+      std::unique_ptr<DocIDTableReader>(itr->LookupWord(query[j]));
+
+      if (!next_reader) {  // clear results and break if the word doesn't exist
+        current_docs.clear();
+        break;
+      }
+      list<DocIDElementHeader> next_docs = next_reader->GetDocIDList();
+      current_docs = MergeDocIDLists(current_docs, next_docs);
+      if (current_docs.empty()) {  // No intersection found, break early
+        break;
+      }
+    }
+
+    // Convert the current index results into the final QueryResult format
+    if (!current_docs.empty()) {
+      DocTableReader* dtr = dtr_array_[i];
+      for (const auto& doc : current_docs) {
+        QueryResult qr;
+        Verify333(dtr->LookupDocID(doc.doc_id, &qr.document_name));
+        qr.rank = doc.num_positions;
+        final_result.push_back(qr);
+      }
+    }
+  }
   // Sort the final results.
   sort(final_result.begin(), final_result.end());
   return final_result;
 }
+// Merge two DocID lists, take the intersection,
+// and accumulate the frequency of occurrences (optimized version)
+static list<DocIDElementHeader> MergeDocIDLists(
+    const list<DocIDElementHeader>& list1,
+    const list<DocIDElementHeader>& list2) {
+    list<DocIDElementHeader> merged_list;
 
+    // Use a hash map to record the doc_id and its frequency from list2
+    std::unordered_map<DocID_t, int> list2_map;
+    for (const auto& elem : list2) {
+        list2_map[elem.doc_id] = elem.num_positions;
+    }
+
+    // Iterate through list1, find common doc_ids, and accumulate the frequency
+    for (const auto& elem1 : list1) {
+        auto it = list2_map.find(elem1.doc_id);
+        if (it != list2_map.end()) {
+            merged_list.emplace_back(DocIDElementHeader{
+                elem1.doc_id, elem1.num_positions + it->second});
+        }
+    }
+
+    return merged_list;
+}
 }  // namespace hw3
