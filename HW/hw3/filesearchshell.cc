@@ -11,17 +11,26 @@
 
 #include <cstdlib>    // for EXIT_SUCCESS, EXIT_FAILURE
 #include <iostream>   // for std::cout, std::cerr, etc.
-
+#include <sstream>
+#include <string>
+#include <algorithm>
+#include <memory>
 #include "./QueryProcessor.h"
 
 using std::cerr;
 using std::endl;
-
+using std::cout;
+using std::istringstream;
+using std::list;
+using std::string;
+using std::vector;
 // Error usage message for the client to see
 // Arguments:
 // - prog_name: Name of the program
 static void Usage(char *prog_name);
-
+static void PrintResults(
+  const vector<hw3::QueryProcessor::QueryResult>& results);
+static vector<string> ParseQuery(const string& input);
 // Your job is to implement the entire filesearchshell.cc
 // functionality. We're essentially giving you a blank screen to work
 // with; you need to figure out an appropriate design, to decompose
@@ -86,11 +95,56 @@ int main(int argc, char **argv) {
   // STEP 1:
   // Implement filesearchshell!
   // Probably want to write some helper methods ...
-  while (1) { }
+  try {
+    list<string> index_files(argv + 1, argv + argc);
+    auto processor = std::make_unique<hw3::QueryProcessor>(index_files, true);
+
+    string user_input;
+    while (1) {
+      cout << "Enter query:\n";
+
+      if (!std::getline(std::cin, user_input) || std::cin.eof()) break;
+
+      auto query_words = ParseQuery(user_input);
+      if (!query_words.empty()) {
+        PrintResults(processor->ProcessQuery(query_words));
+      }
+    }
+  } catch (const std::exception& e) {
+    cerr << "\nFatal Error: " << e.what() << endl;
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }
 
+static vector<string> ParseQuery(const string& input) {
+  vector<string> words;
+  istringstream iss(input);
+  string word;
+
+  while (iss >> word) {
+    std::transform(word.begin(), word.end(), word.begin(),
+      [](unsigned char c){ return std::tolower(c); });
+    if (!word.empty()) {
+      words.emplace_back(std::move(word));
+    }
+  }
+  return words;
+}
+
+static void PrintResults(
+  const vector<hw3::QueryProcessor::QueryResult>& results) {
+  if (results.empty()) {
+    cout << "  [no results]\n";
+    return;
+  }
+
+  for (const auto& result : results) {
+    cout << result.document_name
+         << " (" << std::to_string(result.rank) << ")\n";
+  }
+}
 static void Usage(char *prog_name) {
   cerr << "Usage: " << prog_name << " [index files+]" << endl;
   exit(EXIT_FAILURE);

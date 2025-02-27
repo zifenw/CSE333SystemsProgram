@@ -12,15 +12,26 @@ python3 ../cpplint.py --clint *.cc
 
 
 
+$ git status
 
+$ git add .
 
+$ git commit -m "HashTable.c part finish, pass all test_suite, Valgrind, and cpplint"
 
-g++ -Wall -g -std=c++17 -o ex14 ex14.cc
-./ex14
-cpplint ex14.cc
+$ git push
 
-valgrind --leak-check=full ./ex12
-python3 cpplint.py --clint ex12.cc
+$ git pull
+$ make clean
+$ git status
+
+$ git rm example_program_ht example_program_ll test_suite
+
+$ git commit -m "remove example_program_ht, example_program_ll, and test_suite"
+
+$ git push
+
+$ git tag hw3-final
+$ git push --tags 
 
 ## Goals & Guidelines
 In this assignment you will build on top of your HW2 implementation: In Part A, you will write code that takes an in-memory inverted index produced by HW2 and writes it out to disk in an architecture-neutral format. In Part B, you will write C++ code that walks through an on-disk index to service a lookup. Finally, in Part C, you will write a query processor that serves queries from multiple on-disk indices. 在本作业中，您将在HW2实现的基础上进行构建：在A部分，您将编写代码，该代码采用HW2生成的内存倒排索引，并以架构中立的格式将其写入磁盘。在B部分中，您将编写C++代码，遍历磁盘上的索引以提供查找服务。最后，在C部分中，您将编写一个查询处理器，为来自多个磁盘索引的查询提供服务。
@@ -231,7 +242,7 @@ You're done with part B!
 ## Part C: Search Shell
 For Part C, your job is to implement a search shell, just like in HW2, but this time using your HW3 infrastructure you completed parts A and B.对于C部分，你的工作是实现一个搜索shell，就像在HW2中一样，但这次使用HW3基础设施，你完成了a和B部分。
 
-1. Open up filesearchshell.cc and read through it. Note that unlike parts A and B, we have given you almost nothing about the implementation of the filesearchshell besides a really long (and hopefully helpful) comment. Implement filesearchshell.cc.打开filesearchshell.cc并通读一遍。请注意，与A和B部分不同，除了一条非常长（希望有用）的注释外，我们几乎没有给你任何关于filesearchshell实现的信息。实现文件earchshell.cc。
+1. Open up `filesearchshell.cc` and read through it. Note that unlike parts A and B, we have given you almost nothing about the implementation of the filesearchshell besides a really long (and hopefully helpful) comment. Implement filesearchshell.cc.打开filesearchshell.cc并通读一遍。请注意，与A和B部分不同，除了一条非常长（希望有用）的注释外，我们几乎没有给你任何关于filesearchshell实现的信息。实现文件earchshell.cc。
 
 2. Try using your filesearchshell binary. You can compare the output of your binary against a transcript of our solution. The transcripts should match precisely, except perhaps for the order of equally ranked matches. You can also walk your filesearchshell against a very tiny index -- tiny.idx -- in the debugger to see if it's reading the correct fields and jumping to the correct offsets.尝试使用您的文件搜索shell二进制文件。您可以将二进制文件的输出与我们解决方案的副本进行比较。成绩单应该精确匹配，除了排名相同的比赛顺序。您还可以在调试器中针对非常小的索引tiny.idx遍历文件搜索外壳，查看它是否读取了正确的字段并跳转到正确的偏移量。
 
